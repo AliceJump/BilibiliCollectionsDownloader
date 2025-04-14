@@ -19,8 +19,8 @@ pip install blinker==1.7.0
 ```
 
 ### 2. 环境配置
-- 下载并配置 [Chrome 浏览器](https://www.google.com/chrome/)。
-- 下载并配置 [ChromeDriver](https://sites.google.com/a/chromium.org/chromedriver/)（确保版本与您的 Chrome 浏览器版本匹配）。
+- 下载并配置 Chrome 浏览器
+- 下载并配置 ChromeDriver（确保版本与您的 Chrome 浏览器版本匹配）。
 
 ### 3. 配置常量
 修改py文件内以下常量以适应您的环境：
