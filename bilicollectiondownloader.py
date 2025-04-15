@@ -9,7 +9,9 @@ from selenium.webdriver.chrome.service import Service
 import hashlib
 from urllib.parse import urlparse, parse_qs
 import re
-
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 # ====== 使用须知 ======
 '''
 1. 自行搜索并安装依赖库：pyzbar, seleniumwire, opencv-python, requests, selenium
@@ -169,21 +171,50 @@ def get_lottery_url(url):
         log_info(f"正在访问 URL：{url}")
         driver.get(url)
         time.sleep(5)
+        WebDriverWait(driver, 10).until(
+            EC.frame_to_be_available_and_switch_to_it((By.ID, "mall-iframe"))
+        )
 
-        target_url = None
+        # 等待所有 tab 加载出来
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".card-tabs .tab"))
+        )
+
+        # 获取所有 tab
+        tabs = driver.find_elements(By.CSS_SELECTOR, ".card-tabs .tab")
+        print(f"总共找到 {len(tabs)} 个 tab")
+
+        # 挨个点击（注意每次点击后要重新获取 tab 元素）
+        for i in range(len(tabs)):
+            # 重新获取 tabs（每次点击可能页面更新，元素引用会失效）
+            tabs = driver.find_elements(By.CSS_SELECTOR, ".card-tabs .tab")
+
+            name = tabs[i].find_element(By.CSS_SELECTOR, ".lottery-name").text
+            print(f"点击第 {i + 1} 个 tab：{name}")
+            tabs[i].click()
+
+            # 可以加一些等待时间让页面切换完成
+            time.sleep(2)
+        target_url = []
+        count= 0
         for request in driver.requests:
-            if request.response and "lottery_home_detail" in request.url:
-                target_url = request.url
+            if count == len(tabs):
                 break
+            if request.response and "lottery_home_detail" in request.url and request.url not in target_url:
+                target_url.append(request.url)
+                count += 1
 
         driver.quit()
 
         if target_url:
-            log_info(f"找到请求链接：{target_url}")
-            parsed_url = urlparse(target_url)
-            query_params = parse_qs(parsed_url.query)
-            log_info(f"提取参数：{query_params}")
-            return query_params
+            query_params_list=[]
+            for target_ur in target_url:
+                log_info(f"找到请求链接：{target_ur}")
+                parsed_url = urlparse(target_ur)
+                query_params = parse_qs(parsed_url.query)
+                log_info(f"提取参数：{query_params}")
+                query_params_list.append(query_params)
+            return query_params_list
         else:
             log_warning("未找到包含 lottery_home_detail 的请求！")
             return None
@@ -281,31 +312,32 @@ def main(qrcode):
         return
 
     # b) 获取 URL 参数
-    query_params = get_lottery_url(url)
-    if not query_params:
+    query_params_list = get_lottery_url(url)
+    if not query_params_list:
         log_error("获取参数失败，无法继续操作！")
         return
 
-    # c) 获取下载链接
-    name, video_urls, image_urls = get_download_url(query_params['act_id'][0], query_params['lottery_id'][0],
-                                                    VIDEO_WATER_TYPE)
-    if not video_urls and not image_urls:
-        log_error("未获取到有效的下载链接，程序结束！")
-        return
+        # c) 获取下载链接
+    for query_params in query_params_list:
+        name, video_urls, image_urls = get_download_url(query_params['act_id'][0], query_params['lottery_id'][0],
+                                                        VIDEO_WATER_TYPE)
+        if not video_urls and not image_urls:
+            log_error("未获取到有效的下载链接，程序结束！")
+            return
 
-    # 将活动名称作为下载目录
-    whole_name = name
+        # 将活动名称作为下载目录
+        whole_name = name
 
-    downloader = Downloader()
+        downloader = Downloader()
 
-    # 下载视频
-    for video_name, video_url in video_urls:
-        downloader.download("video", whole_name, video_name, video_url, "mp4")
+        # 下载视频
+        for video_name, video_url in video_urls:
+            downloader.download("video", whole_name, video_name, video_url, "mp4")
 
-    # 下载图片
-    for image_name, image_url in image_urls:
-        downloader.download("img", whole_name, image_name, image_url, "png")
-    deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
+        # 下载图片
+        for image_name, image_url in image_urls:
+            downloader.download("img", whole_name, image_name, image_url, "png")
+        deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
 
 
 def deduplicate_videos_by_hash(video_dir):
