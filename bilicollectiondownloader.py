@@ -51,28 +51,34 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 # ====== 配置日志 ======
 # 将 logger 改为 print
 log_all=""
+log_err=""
+log_warn=""
 timestamp = strftime("%Y-%m-%d_%H-%M-%S")
 def log_save():
     with open("log/"+"log_"+timestamp+".txt", "w", encoding="utf-8") as f:
         f.write(log_all)
     log_info("日志已保存到"+"log/"+"log_"+timestamp+".txt")
-
+    if log_err:
+        with open("log/"+"log_err_"+timestamp+".txt", "w", encoding="utf-8") as f:
+            f.write(log_err)
+        log_info("错误日志已保存到"+"log/"+"log_err_"+timestamp+".txt")
+    if log_warn:
+        with open("log/"+"log_warn_"+timestamp+".txt", "w", encoding="utf-8") as f:
+            f.write(log_warn)
 def log_info(message):
     global log_all
     print(f"[INFO] {message}")
     log_all+=f"[INFO] {message}\n"
-
-
 def log_warning(message):
-    global log_all
+    global log_all, log_warn
     print(f"[WARNING] {message}")
     log_all+=f"[WARNING] {message}\n"
-
-
+    log_warn+=f"[WARNING] {message}\n"
 def log_error(message):
-    global log_all
+    global log_all,log_err
     print(f"[ERROR] {message}")
     log_all+=f"[ERROR] {message}\n"
+    log_err+=f"[ERROR] {message}\n"
 
 
 # 将 logger 的部分替换为上述 print 函数
@@ -104,9 +110,10 @@ class Downloader:
             # 检查是否已存在
             if os.path.exists(file_path):
                 existing_size = os.path.getsize(file_path)
-                response = requests.head(url, headers=self.headers)
+                response = requests.get(url, headers=self.headers, stream=True, timeout=10)
                 response.raise_for_status()
                 remote_size = int(response.headers.get("Content-Length", 0))
+                response.close()  # 关闭连接
 
                 if existing_size == remote_size:
                     log_info(f"文件已存在且大小相同，跳过下载：{file_path.replace(os.sep, '/')}")
@@ -127,7 +134,7 @@ class Downloader:
             log_info(f"{category.capitalize()}下载完成：{file_path.replace(os.sep, '/')}")
         except Exception as e:
             log_error(f"下载{category}失败：{file_path.replace(os.sep, '/')}")
-            self.err_list.append(f"URL: {url}, 错误: {e}")
+            self.err_list.append(f"下载{category}失败：{file_path.replace(os.sep, '/')}, 错误: {e}")
 
     def err_list_save(self):
 
@@ -136,7 +143,9 @@ class Downloader:
         os.makedirs(dir_path, exist_ok=True)
         log_filename = f"log_err_list_{timestamp}.log"
         full_path = os.path.join(dir_path, log_filename)
-
+        if len(self.err_list) == 0:
+            log_info("没有错误下载URL需要记录")
+            return
         with open(full_path, "w", encoding="utf-8") as f:
             for err in self.err_list:
                 f.write(err + "\n")
@@ -404,4 +413,5 @@ if __name__ == "__main__":
     for qrcode in image_files:
         main("qrcodes/" + qrcode)
     log_save()
-    input()
+    print("已完成")
+    input("按任意键退出程序")
