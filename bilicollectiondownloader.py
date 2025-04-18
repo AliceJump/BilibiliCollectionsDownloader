@@ -12,6 +12,7 @@ import re
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from time import strftime
 # ====== 使用须知 ======
 '''
 1. 自行搜索并安装依赖库：pyzbar, seleniumwire, opencv-python, requests, selenium
@@ -49,16 +50,29 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 # ====== 配置日志 ======
 # 将 logger 改为 print
+log_all=""
+timestamp = strftime("%Y-%m-%d_%H-%M-%S")
+def log_save():
+    with open("log/"+"log_"+timestamp+".txt", "w", encoding="utf-8") as f:
+        f.write(log_all)
+    log_info("日志已保存到"+"log/"+"log_"+timestamp+".txt")
+
 def log_info(message):
+    global log_all
     print(f"[INFO] {message}")
+    log_all+=f"[INFO] {message}\n"
 
 
 def log_warning(message):
+    global log_all
     print(f"[WARNING] {message}")
+    log_all+=f"[WARNING] {message}\n"
 
 
 def log_error(message):
+    global log_all
     print(f"[ERROR] {message}")
+    log_all+=f"[ERROR] {message}\n"
 
 
 # 将 logger 的部分替换为上述 print 函数
@@ -70,7 +84,7 @@ class Downloader:
             "Referer": REFERER,
             "User-Agent": USER_AGENT
         }
-
+        self.err_list = []
     def download(self, category, whole_name, name, url, ext):
         """
         category: 'video' or 'img'
@@ -112,7 +126,22 @@ class Downloader:
 
             log_info(f"{category.capitalize()}下载完成：{file_path.replace(os.sep, '/')}")
         except Exception as e:
-            log_error(f"下载{category}失败：{file_path.replace(os.sep, '/')}, URL: {url}, 错误: {e}")
+            log_error(f"下载{category}失败：{file_path.replace(os.sep, '/')}")
+            self.err_list.append(f"URL: {url}, 错误: {e}")
+
+    def err_list_save(self):
+
+
+        dir_path = os.path.join(self.base_dir[:-4], "log")
+        os.makedirs(dir_path, exist_ok=True)
+        log_filename = f"log_err_list_{timestamp}.log"
+        full_path = os.path.join(dir_path, log_filename)
+
+        with open(full_path, "w", encoding="utf-8") as f:
+            for err in self.err_list:
+                f.write(err + "\n")
+
+        log_info(f"错误日志已保存到：{full_path.replace(os.sep, '/')}")
 
 
 # ====== 功能函数 ======
@@ -337,11 +366,12 @@ def main(qrcode):
         # 下载图片
         for image_name, image_url in image_urls:
             downloader.download("img", whole_name, image_name, image_url, "png")
+        downloader.err_list_save()
         deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
 
 
 def deduplicate_videos_by_hash(video_dir):
-    log_info(f"开始对视频文件夹去重：{video_dir}")
+    log_info(f"开始对视频文件夹去重：{video_dir.replace(os.sep, '/')}")
     hash_map = {}
     for root, _, files in os.walk(video_dir):
         for file in files:
@@ -373,4 +403,5 @@ if __name__ == "__main__":
                 image_files.append(file)  # 只保存文件名
     for qrcode in image_files:
         main("qrcodes/" + qrcode)
+    log_save()
     input()
