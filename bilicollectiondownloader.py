@@ -34,6 +34,7 @@ CHROME_DRIVER_PATH = r"chromedriver.exe"
 
 # VIDEO_WATER_TYPE=True为下载高质量水印版，VIDEO_WATER_TYPE=False为下载无水印版低质量
 VIDEO_WATER_TYPE = False
+VIDEO_NO_WATER_TYPE=False
 
 '''
 以下两个常量请勿自行配置
@@ -54,6 +55,11 @@ log_all=""
 log_err=""
 log_warn=""
 timestamp = strftime("%Y-%m-%d_%H-%M-%S")
+def is_url(string):
+    # 常见 http、https、ftp 开头的网址
+    pattern = re.compile(
+        r'^(https?|ftp)://[^\s/$.?#].[^\s]*$', re.IGNORECASE)
+    return re.match(pattern, string) is not None
 def log_save():
     with open("log/"+"log_"+timestamp+".txt", "w", encoding="utf-8") as f:
         f.write(log_all)
@@ -278,6 +284,7 @@ def get_download_url(act_id, lottery_id, video_type):
         data = response.json()
 
         video_urls = []
+        water_mark_video_urls = []
         image_urls = []
         name = data.get('data', {}).get('name', '未知活动名称')
         item_list = data.get("data", {}).get("item_list", [])
@@ -293,12 +300,24 @@ def get_download_url(act_id, lottery_id, video_type):
                 continue
 
             # 视频下载链接处理
-            downloads = card.get("video_list_download") if video_type else card.get("video_list")
+            downloads=[]
+            if video_type[1]:
+                temp=card.get("video_list")
+                if temp:
+                    downloads.append(temp[0])
+            water_mark_downloads=[]
+            if video_type[0]:
+                temp = card.get("video_list_download")
+                if temp:
+                    water_mark_downloads.append(temp[0])
             video_name = card.get("card_name", "unnamed").replace("·", "_").replace(" ", "_")
             video_name = re.sub(r'[<>:"/\\|?*]', '_', video_name)
             if downloads:
-                for url in downloads:
-                    video_urls.append((video_name, url))
+                for url_temp in downloads:
+                    video_urls.append((video_name, url_temp))
+            if water_mark_downloads:
+                for url_temp in water_mark_downloads:
+                    water_mark_video_urls.append((video_name, url_temp))
 
             # 图片下载链接处理（使用 card_img 字段）
             image_url = card.get("card_img")
@@ -311,19 +330,32 @@ def get_download_url(act_id, lottery_id, video_type):
             if card:
                 card = card.get("card_type_info", {})
                 if card:
-                    downloads = None
+                    downloads = []
                     if card.get("content"):
                         animation = card["content"].get("animation")
                         if animation:
-                            downloads = animation.get("animation_video_urls") if not video_type else animation.get(
-                                "watermark_animations")
+                            if video_type[1]:
+                                temp=animation.get("1")
+                                if temp:
+                                    downloads.append(temp[0])
+                    water_mark_downloads=[]
+                    if video_type[0]:
+                        temp = card.get("watermark_animations")
+                        if temp:
+                            temp=temp[0]
+                            if temp:
+                                temp=temp.get("watermark_animation",{})
+                                if temp:
+                                    water_mark_downloads.append(temp)
                     video_name = card.get("name", "unnamed").replace("·", "_").replace(" ", "_")
-                    if downloads and not video_type:
-                        for url in downloads:
-                            video_urls.append((video_name, url))
-                    if downloads and video_type:
-                        for url in downloads:
-                            video_urls.append((video_name, url.get("watermark_animation")))
+                    if downloads:
+                        for url_temp in downloads:
+                            video_urls.append((video_name, url_temp))
+                    if water_mark_downloads:
+                        for url_temp in water_mark_downloads:
+                            water_mark_video_urls.append((video_name, url_temp))
+
+
 
                     # 图片下载链接处理（使用 card_img 字段）
                     image_url = card.get("overview_image")
@@ -331,7 +363,7 @@ def get_download_url(act_id, lottery_id, video_type):
                         image_name = video_name  # 可复用视频名作为图片名
                         image_urls.append((image_name, image_url))
 
-        return name, video_urls, image_urls
+        return name, video_urls, image_urls,water_mark_video_urls
     except requests.RequestException as e:
         log_error(f"请求 API 失败: {e}")
         return None, [], []
@@ -342,12 +374,8 @@ def get_download_url(act_id, lottery_id, video_type):
 
 # ====== 主程序 ======
 
-def main(qrcode):
+def load_url(url):
     # a) 扫描二维码获取 URL
-    url = scan_qr_code_from_full_image(qrcode)
-    if not url:
-        log_error("二维码扫描失败，无法继续操作！")
-        return
 
     # b) 获取 URL 参数
     query_params_list = get_lottery_url(url)
@@ -357,8 +385,8 @@ def main(qrcode):
 
         # c) 获取下载链接
     for query_params in query_params_list:
-        name, video_urls, image_urls = get_download_url(query_params['act_id'][0], query_params['lottery_id'][0],
-                                                        VIDEO_WATER_TYPE)
+        name, video_urls, image_urls,water_mark_video_urls = get_download_url(query_params['act_id'][0], query_params['lottery_id'][0],
+                                                        [VIDEO_WATER_TYPE,VIDEO_NO_WATER_TYPE])
         if not video_urls and not image_urls:
             log_error("未获取到有效的下载链接，程序结束！")
             return
@@ -375,8 +403,11 @@ def main(qrcode):
         # 下载图片
         for image_name, image_url in image_urls:
             downloader.download("img", whole_name, image_name, image_url, "png")
+        for water_mark_name, water_mark_video_url in water_mark_video_urls:
+            downloader.download("watermark_video", whole_name, water_mark_name, water_mark_video_url, "mp4")
         downloader.err_list_save()
         deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
+        deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "watermark_video"))
 
 
 def deduplicate_videos_by_hash(video_dir):
@@ -402,16 +433,44 @@ def deduplicate_videos_by_hash(video_dir):
 
 
 if __name__ == "__main__":
-    directory = 'qrcodes'
-    image_files = []
+    switch=input("选择你要选择的方式\n1.批量扫描qrcodes文件夹内的二维码\n2.批量载入urls.txt内的链接(以行为单位)\n请输入选择:")
+    urls=[]
+    method=""
+    text=""
+    video_water_type=input("选择视频类型\n1.无水印低质量版\n2.有水印高质量版\n如输入12为两个都要，1为要无水印低质量版\n请输入:")
+    if "1" in video_water_type:
+        VIDEO_NO_WATER_TYPE=True
+    if "2" in video_water_type:
+        VIDEO_WATER_TYPE=True
+    if switch == "1":
+        method="扫描方式"
+        directory = 'qrcodes'
+        image_files = []
 
-    for file in os.listdir(directory):
-        full_path = os.path.join(directory, file)
-        if os.path.isfile(full_path):
-            if file.lower().endswith(('.jpg', '.png')):
-                image_files.append(file)  # 只保存文件名
-    for qrcode in image_files:
-        main("qrcodes/" + qrcode)
+        for file in os.listdir(directory):
+            full_path = os.path.join(directory, file)
+            if os.path.isfile(full_path):
+                if file.lower().endswith(('.jpg', '.png')):
+                    image_files.append(file)  # 只保存文件名
+        for qrcode_img in image_files:
+            text=scan_qr_code_from_full_image("qrcodes/" + qrcode_img)
+            if text:
+                if is_url(text.strip()):
+                    urls.append(text.strip())
+    if switch == "2":
+        method="读取文本文件方式获得"
+        directory = 'urls.txt'
+        try:
+            with open('urls.txt', 'r',encoding="utf-8") as f:
+                for text in f:
+                    if text:
+                        if is_url(text.strip()):
+                            urls.append(text.strip())
+        except Exception as e:
+            print("找不到urls.txt")
+    for url in urls:
+        print("找到{}个url".format(len(urls)))
+        load_url(url)
     log_save()
     print("已完成")
     input("按任意键退出程序")
