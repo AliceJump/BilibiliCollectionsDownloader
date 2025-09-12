@@ -9,7 +9,10 @@ from selenium.webdriver.chrome.service import Service
 import hashlib
 from urllib.parse import urlparse, parse_qs
 import re
-
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from time import strftime
 # ====== 使用须知 ======
 '''
 1. 自行搜索并安装依赖库：pyzbar, seleniumwire, opencv-python, requests, selenium
@@ -31,6 +34,7 @@ CHROME_DRIVER_PATH = r"chromedriver.exe"
 
 # VIDEO_WATER_TYPE=True为下载高质量水印版，VIDEO_WATER_TYPE=False为下载无水印版低质量
 VIDEO_WATER_TYPE = False
+VIDEO_NO_WATER_TYPE=False
 
 '''
 以下两个常量请勿自行配置
@@ -47,16 +51,40 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 # ====== 配置日志 ======
 # 将 logger 改为 print
+log_all=""
+log_err=""
+log_warn=""
+timestamp = strftime("%Y-%m-%d_%H-%M-%S")
+def is_url(string):
+    # 常见 http、https、ftp 开头的网址
+    pattern = re.compile(
+        r'^(https?|ftp)://[^\s/$.?#].[^\s]*$', re.IGNORECASE)
+    return re.match(pattern, string) is not None
+def log_save():
+    with open("log/"+"log_"+timestamp+".txt", "w", encoding="utf-8") as f:
+        f.write(log_all)
+    log_info("日志已保存到"+"log/"+"log_"+timestamp+".txt")
+    if log_err:
+        with open("log/"+"log_err_"+timestamp+".txt", "w", encoding="utf-8") as f:
+            f.write(log_err)
+        log_info("错误日志已保存到"+"log/"+"log_err_"+timestamp+".txt")
+    if log_warn:
+        with open("log/"+"log_warn_"+timestamp+".txt", "w", encoding="utf-8") as f:
+            f.write(log_warn)
 def log_info(message):
+    global log_all
     print(f"[INFO] {message}")
-
-
+    log_all+=f"[INFO] {message}\n"
 def log_warning(message):
+    global log_all, log_warn
     print(f"[WARNING] {message}")
-
-
+    log_all+=f"[WARNING] {message}\n"
+    log_warn+=f"[WARNING] {message}\n"
 def log_error(message):
+    global log_all,log_err
     print(f"[ERROR] {message}")
+    log_all+=f"[ERROR] {message}\n"
+    log_err+=f"[ERROR] {message}\n"
 
 
 # 将 logger 的部分替换为上述 print 函数
@@ -68,7 +96,7 @@ class Downloader:
             "Referer": REFERER,
             "User-Agent": USER_AGENT
         }
-
+        self.err_list = []
     def download(self, category, whole_name, name, url, ext):
         """
         category: 'video' or 'img'
@@ -88,9 +116,10 @@ class Downloader:
             # 检查是否已存在
             if os.path.exists(file_path):
                 existing_size = os.path.getsize(file_path)
-                response = requests.head(url, headers=self.headers)
+                response = requests.get(url, headers=self.headers, stream=True, timeout=10)
                 response.raise_for_status()
                 remote_size = int(response.headers.get("Content-Length", 0))
+                response.close()  # 关闭连接
 
                 if existing_size == remote_size:
                     log_info(f"文件已存在且大小相同，跳过下载：{file_path.replace(os.sep, '/')}")
@@ -110,7 +139,24 @@ class Downloader:
 
             log_info(f"{category.capitalize()}下载完成：{file_path.replace(os.sep, '/')}")
         except Exception as e:
-            log_error(f"下载{category}失败：{file_path.replace(os.sep, '/')}, URL: {url}, 错误: {e}")
+            log_error(f"下载{category}失败：{file_path.replace(os.sep, '/')}")
+            self.err_list.append(f"下载{category}失败：{file_path.replace(os.sep, '/')}, 错误: {e}")
+
+    def err_list_save(self):
+
+
+        dir_path = os.path.join(self.base_dir[:-4], "log")
+        os.makedirs(dir_path, exist_ok=True)
+        log_filename = f"log_err_list_{timestamp}.log"
+        full_path = os.path.join(dir_path, log_filename)
+        if len(self.err_list) == 0:
+            log_info("没有错误下载URL需要记录")
+            return
+        with open(full_path, "w", encoding="utf-8") as f:
+            for err in self.err_list:
+                f.write(err + "\n")
+
+        log_info(f"错误日志已保存到：{full_path.replace(os.sep, '/')}")
 
 
 # ====== 功能函数 ======
@@ -169,21 +215,50 @@ def get_lottery_url(url):
         log_info(f"正在访问 URL：{url}")
         driver.get(url)
         time.sleep(5)
+        WebDriverWait(driver, 10).until(
+            EC.frame_to_be_available_and_switch_to_it((By.ID, "mall-iframe"))
+        )
 
-        target_url = None
+        # 等待所有 tab 加载出来
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".card-tabs .tab"))
+        )
+
+        # 获取所有 tab
+        tabs = driver.find_elements(By.CSS_SELECTOR, ".card-tabs .tab")
+        print(f"总共找到 {len(tabs)} 个 tab")
+
+        # 挨个点击（注意每次点击后要重新获取 tab 元素）
+        for i in range(len(tabs)):
+            # 重新获取 tabs（每次点击可能页面更新，元素引用会失效）
+            tabs = driver.find_elements(By.CSS_SELECTOR, ".card-tabs .tab")
+
+            name = tabs[i].find_element(By.CSS_SELECTOR, ".lottery-name").text
+            print(f"点击第 {i + 1} 个 tab：{name}")
+            tabs[i].click()
+
+            # 可以加一些等待时间让页面切换完成
+            time.sleep(2)
+        target_url = []
+        count= 0
         for request in driver.requests:
-            if request.response and "lottery_home_detail" in request.url:
-                target_url = request.url
+            if count == len(tabs):
                 break
+            if request.response and "lottery_home_detail" in request.url and request.url not in target_url:
+                target_url.append(request.url)
+                count += 1
 
         driver.quit()
 
         if target_url:
-            log_info(f"找到请求链接：{target_url}")
-            parsed_url = urlparse(target_url)
-            query_params = parse_qs(parsed_url.query)
-            log_info(f"提取参数：{query_params}")
-            return query_params
+            query_params_list=[]
+            for target_ur in target_url:
+                log_info(f"找到请求链接：{target_ur}")
+                parsed_url = urlparse(target_ur)
+                query_params = parse_qs(parsed_url.query)
+                log_info(f"提取参数：{query_params}")
+                query_params_list.append(query_params)
+            return query_params_list
         else:
             log_warning("未找到包含 lottery_home_detail 的请求！")
             return None
@@ -209,6 +284,7 @@ def get_download_url(act_id, lottery_id, video_type):
         data = response.json()
 
         video_urls = []
+        water_mark_video_urls = []
         image_urls = []
         name = data.get('data', {}).get('name', '未知活动名称')
         item_list = data.get("data", {}).get("item_list", [])
@@ -224,12 +300,24 @@ def get_download_url(act_id, lottery_id, video_type):
                 continue
 
             # 视频下载链接处理
-            downloads = card.get("video_list_download") if video_type else card.get("video_list")
+            downloads=[]
+            if video_type[1]:
+                temp=card.get("video_list")
+                if temp:
+                    downloads.append(temp[0])
+            water_mark_downloads=[]
+            if video_type[0]:
+                temp = card.get("video_list_download")
+                if temp:
+                    water_mark_downloads.append(temp[0])
             video_name = card.get("card_name", "unnamed").replace("·", "_").replace(" ", "_")
             video_name = re.sub(r'[<>:"/\\|?*]', '_', video_name)
             if downloads:
-                for url in downloads:
-                    video_urls.append((video_name, url))
+                for url_temp in downloads:
+                    video_urls.append((video_name, url_temp))
+            if water_mark_downloads:
+                for url_temp in water_mark_downloads:
+                    water_mark_video_urls.append((video_name, url_temp))
 
             # 图片下载链接处理（使用 card_img 字段）
             image_url = card.get("card_img")
@@ -242,19 +330,32 @@ def get_download_url(act_id, lottery_id, video_type):
             if card:
                 card = card.get("card_type_info", {})
                 if card:
-                    downloads = None
+                    downloads = []
                     if card.get("content"):
                         animation = card["content"].get("animation")
                         if animation:
-                            downloads = animation.get("animation_video_urls") if not video_type else animation.get(
-                                "watermark_animations")
+                            if video_type[1]:
+                                temp=animation.get("1")
+                                if temp:
+                                    downloads.append(temp[0])
+                    water_mark_downloads=[]
+                    if video_type[0]:
+                        temp = card.get("watermark_animations")
+                        if temp:
+                            temp=temp[0]
+                            if temp:
+                                temp=temp.get("watermark_animation",{})
+                                if temp:
+                                    water_mark_downloads.append(temp)
                     video_name = card.get("name", "unnamed").replace("·", "_").replace(" ", "_")
-                    if downloads and not video_type:
-                        for url in downloads:
-                            video_urls.append((video_name, url))
-                    if downloads and video_type:
-                        for url in downloads:
-                            video_urls.append((video_name, url.get("watermark_animation")))
+                    if downloads:
+                        for url_temp in downloads:
+                            video_urls.append((video_name, url_temp))
+                    if water_mark_downloads:
+                        for url_temp in water_mark_downloads:
+                            water_mark_video_urls.append((video_name, url_temp))
+
+
 
                     # 图片下载链接处理（使用 card_img 字段）
                     image_url = card.get("overview_image")
@@ -262,7 +363,7 @@ def get_download_url(act_id, lottery_id, video_type):
                         image_name = video_name  # 可复用视频名作为图片名
                         image_urls.append((image_name, image_url))
 
-        return name, video_urls, image_urls
+        return name, video_urls, image_urls,water_mark_video_urls
     except requests.RequestException as e:
         log_error(f"请求 API 失败: {e}")
         return None, [], []
@@ -273,43 +374,44 @@ def get_download_url(act_id, lottery_id, video_type):
 
 # ====== 主程序 ======
 
-def main(qrcode):
+def load_url(url):
     # a) 扫描二维码获取 URL
-    url = scan_qr_code_from_full_image(qrcode)
-    if not url:
-        log_error("二维码扫描失败，无法继续操作！")
-        return
 
     # b) 获取 URL 参数
-    query_params = get_lottery_url(url)
-    if not query_params:
+    query_params_list = get_lottery_url(url)
+    if not query_params_list:
         log_error("获取参数失败，无法继续操作！")
         return
 
-    # c) 获取下载链接
-    name, video_urls, image_urls = get_download_url(query_params['act_id'][0], query_params['lottery_id'][0],
-                                                    VIDEO_WATER_TYPE)
-    if not video_urls and not image_urls:
-        log_error("未获取到有效的下载链接，程序结束！")
-        return
+        # c) 获取下载链接
+    for query_params in query_params_list:
+        name, video_urls, image_urls,water_mark_video_urls = get_download_url(query_params['act_id'][0], query_params['lottery_id'][0],
+                                                        [VIDEO_WATER_TYPE,VIDEO_NO_WATER_TYPE])
+        if not video_urls and not image_urls:
+            log_error("未获取到有效的下载链接，程序结束！")
+            return
 
-    # 将活动名称作为下载目录
-    whole_name = name
+        # 将活动名称作为下载目录
+        whole_name = name
 
-    downloader = Downloader()
+        downloader = Downloader()
 
-    # 下载视频
-    for video_name, video_url in video_urls:
-        downloader.download("video", whole_name, video_name, video_url, "mp4")
+        # 下载视频
+        for video_name, video_url in video_urls:
+            downloader.download("video", whole_name, video_name, video_url, "mp4")
 
-    # 下载图片
-    for image_name, image_url in image_urls:
-        downloader.download("img", whole_name, image_name, image_url, "png")
-    deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
+        # 下载图片
+        for image_name, image_url in image_urls:
+            downloader.download("img", whole_name, image_name, image_url, "png")
+        for water_mark_name, water_mark_video_url in water_mark_video_urls:
+            downloader.download("watermark_video", whole_name, water_mark_name, water_mark_video_url, "mp4")
+        downloader.err_list_save()
+        deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
+        deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "watermark_video"))
 
 
 def deduplicate_videos_by_hash(video_dir):
-    log_info(f"开始对视频文件夹去重：{video_dir}")
+    log_info(f"开始对视频文件夹去重：{video_dir.replace(os.sep, '/')}")
     hash_map = {}
     for root, _, files in os.walk(video_dir):
         for file in files:
@@ -331,14 +433,44 @@ def deduplicate_videos_by_hash(video_dir):
 
 
 if __name__ == "__main__":
-    directory = 'qrcodes'
-    image_files = []
+    switch=input("选择你要选择的方式\n1.批量扫描qrcodes文件夹内的二维码\n2.批量载入urls.txt内的链接(以行为单位)\n请输入选择:")
+    urls=[]
+    method=""
+    text=""
+    video_water_type=input("选择视频类型\n1.无水印低质量版\n2.有水印高质量版\n如输入12为两个都要，1为要无水印低质量版\n请输入:")
+    if "1" in video_water_type:
+        VIDEO_NO_WATER_TYPE=True
+    if "2" in video_water_type:
+        VIDEO_WATER_TYPE=True
+    if switch == "1":
+        method="扫描方式"
+        directory = 'qrcodes'
+        image_files = []
 
-    for file in os.listdir(directory):
-        full_path = os.path.join(directory, file)
-        if os.path.isfile(full_path):
-            if file.lower().endswith(('.jpg', '.png')):
-                image_files.append(file)  # 只保存文件名
-    for qrcode in image_files:
-        main("qrcodes/" + qrcode)
-    input()
+        for file in os.listdir(directory):
+            full_path = os.path.join(directory, file)
+            if os.path.isfile(full_path):
+                if file.lower().endswith(('.jpg', '.png')):
+                    image_files.append(file)  # 只保存文件名
+        for qrcode_img in image_files:
+            text=scan_qr_code_from_full_image("qrcodes/" + qrcode_img)
+            if text:
+                if is_url(text.strip()):
+                    urls.append(text.strip())
+    if switch == "2":
+        method="读取文本文件方式获得"
+        directory = 'urls.txt'
+        try:
+            with open('urls.txt', 'r',encoding="utf-8") as f:
+                for text in f:
+                    if text:
+                        if is_url(text.strip()):
+                            urls.append(text.strip())
+        except Exception as e:
+            print("找不到urls.txt")
+    for url in urls:
+        print("找到{}个url".format(len(urls)))
+        load_url(url)
+    log_save()
+    print("已完成")
+    input("按任意键退出程序")
