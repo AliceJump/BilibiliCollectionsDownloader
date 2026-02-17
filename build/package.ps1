@@ -33,8 +33,12 @@ Remove-Item $chromeZip, $driverZip -Force
 Copy-Item (Join-Path $pkgDir "chromedriver-win64\chromedriver.exe") (Join-Path $pkgDir "chromedriver.exe") -Force
 Remove-Item (Join-Path $pkgDir "chromedriver-win64") -Recurse -Force
 
-# 4) Copy project files
-Copy-Item (Join-Path $root "bilicollectiondownloader.py") $pkgDir -Force
+# 4) Copy project files (refactored structure)
+Copy-Item (Join-Path $root "main.py") $pkgDir -Force
+Copy-Item (Join-Path $root "config.py") $pkgDir -Force
+Copy-Item (Join-Path $root "logger.py") $pkgDir -Force
+Copy-Item (Join-Path $root "parser.py") $pkgDir -Force
+Copy-Item (Join-Path $root "downloader.py") $pkgDir -Force
 Copy-Item (Join-Path $root "start.bat") $pkgDir -Force
 Copy-Item (Join-Path $root "README.md") $pkgDir -Force
 Copy-Item (Join-Path $root "requirements.txt") $pkgDir -Force

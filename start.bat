@@ -19,10 +19,10 @@ if not exist "%CHROME_DRIVER_PATH%" (
   exit /b 1
 )
 
-if exist "%ROOT%.venv\Scripts\python.exe" (
-  "%ROOT%.venv\Scripts\python.exe" "%ROOT%bilicollectiondownloader.py"
+if exist "%ROOT%python-embed\Scripts\python.exe" (
+  "%ROOT%python-embed\Scripts\python.exe" "%ROOT%main.py"
 ) else (
-  python "%ROOT%bilicollectiondownloader.py"
+  python "%ROOT%main.py"
 )
 
 endlocal

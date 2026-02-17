@@ -1,8 +1,8 @@
-name: build-and-release
+name: Build and Release
 
 permissions:
   contents: write
-  
+
 on:
   workflow_dispatch:
   push:
