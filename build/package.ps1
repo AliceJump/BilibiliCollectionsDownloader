@@ -35,7 +35,7 @@ Remove-Item (Join-Path $pkgDir "chromedriver-win64") -Recurse -Force
 
 # 4) Copy project files
 Copy-Item (Join-Path $root "bilicollectiondownloader.py") $pkgDir -Force
-Copy-Item (Join-Path $root "start.bat") $pkgDir -Force
+Copy-Item (Join-Path $root "start.Qbat") $pkgDir -Force
 Copy-Item (Join-Path $root "README.md") $pkgDir -Force
 Copy-Item (Join-Path $root "requirements.txt") $pkgDir -Force
 
