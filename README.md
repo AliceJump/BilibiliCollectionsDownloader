@@ -5,19 +5,26 @@
 
 ## 快速开始
 
-### 方式 1：使用预构建版本（推荐）
+### 最简单的方式：使用预构建 EXE（推荐）
 
-从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载最新版本：
+从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载 `BilibiliCollectionsDownloader-Standalone-Windows.zip`：
 
-- **便携版**（推荐）：包含 Python 3.13.3 + Chrome + ChromeDriver，解压即用
-- **EXE 版**：单文件可执行程序 + Chrome + ChromeDriver
+1. **解压文件**
+2. **放置输入**：
+   - 将收藏集分享二维码图片放入 `qrcodes` 文件夹，或
+   - 编辑 `urls.txt`，每行一个链接
+3. **运行程序**：
+   - 双击 `start.bat`，或
+   - 直接运行 `BilibiliCollectionsDownloader.exe`
+4. **选择选项**：
+   - 输入方式：1（二维码）或 2（urls.txt）
+   - 视频类型：1（无水印）/ 2（有水印）/ 12（两者）
 
-使用步骤：
-1. 解压下载的 zip 文件
-2. 在 `qrcodes` 文件夹放置收藏集分享二维码图片（或编辑 `urls.txt` 添加链接）
-3. 双击 `start.bat` 启动程序
+完全独立，无需安装 Python！
 
-### 方式 2：从源码运行
+### 从源码运行
+
+需要 Python 3.13.3：
 
 #### 1. 安装依赖
 
@@ -25,9 +32,7 @@
 pip install -r requirements.txt
 ```
 
-#### 2. 环境配置
-
-将 Chrome 和 ChromeDriver 放到项目根目录：
+#### 2. 放置 Chrome 和 ChromeDriver
 
 ```
 chrome-win64/
@@ -35,29 +40,12 @@ chrome-win64/
 chromedriver.exe
 ```
 
-或者在 [config.py](config.py) 中配置路径。
-
 #### 3. 运行程序
 
 ```bash
-python main.py
-```
-
-程序启动后会提示选择：
-- 输入方式：扫描二维码 / 读取 urls.txt
-- 视频类型：无水印 / 有水印 / 两者都下载
-
-## 开发者打包
-
-本地打包（需要 Python 3.13.3）：
-
-```bash
-# Windows
-build.bat
-
-# 手动打包
-.\build\package_portable.ps1  # 便携版
-.\build\package_exe.ps1       # EXE 版
+python app.py
+# 或
+.\start.bat
 ```
 
 ### 输出文件结构
@@ -75,31 +63,29 @@ dlc/
 
 ## 项目结构
 
+**源码版本**（用于开发）：
 ```
-.
-├── main.py                      # 主程序入口
-├── config.py                    # 配置管理
-├── logger.py                    # 日志管理
-├── parser.py                    # 网页解析（二维码、参数、API）
-├── downloader.py                # 下载与去重
-├── start.bat                    # 启动脚本（Windows）
-├── qrcodes/                     # 放置收藏集二维码图片的目录
-├── urls.txt                     # 收藏集链接（每行一个）
-├── dlc/                         # 下载目录（自动创建）
-│   └── <活动名>/
-│       ├── video/               # 无水印视频
-│       ├── watermark_video/     # 有水印视频
-│       └── img/                 # 图片
-└── logs/                        # 日志目录（自动创建）
+app.py                   # 单文件主程序（包含所有功能）
+requirements.txt         # 依赖列表
+start.bat               # 启动脚本
+qrcodes/                # 放置二维码图片
+urls.txt                # 链接列表
+chrome-win64/           # Chrome 浏览器
+chromedriver.exe        # Chrome 驱动
+dlc/                    # 下载目录（自动创建）
+logs/                   # 日志目录（自动创建）
 ```
 
-## 项目约定
-
-- **配置管理**：所有配置集中在 [config.py](config.py)
-- **日志记录**：统一通过 logging 模块输出，日志保存到 logs/ 目录
-- **文件命名**：自动清洗特殊字符（`·` 和非法文件名字符）
-- **去重策略**：按 MD5 哈希去重，避免重复下载
-- **错误处理**：失败的下载记录到 logs/download_failed_*.log
+**编译版本**（预构建 EXE）：
+```
+BilibiliCollectionsDownloader.exe   # 可执行程序
+start.bat                           # 启动脚本
+chrome-win64/                       # Chrome 浏览器
+chromedriver.exe                    # Chrome 驱动
+qrcodes/                            # 放置二维码图片
+urls.txt                            # 链接列表
+README.md                           # 使用说明
+```
 
 ### 1. 二维码未能识别
 确保二维码图片路径正确，并且二维码内容为有效的 B 站收藏集分享链接。
