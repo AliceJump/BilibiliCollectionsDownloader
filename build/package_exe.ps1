@@ -31,6 +31,10 @@ pyinstaller `
   --distpath $buildDir `
   --workpath (Join-Path $buildDir "work") `
   --specpath $buildDir `
+  --hidden-import=config `
+  --hidden-import=logger `
+  --hidden-import=parser `
+  --hidden-import=downloader `
   (Join-Path $root "main.py")
 
 Copy-Item (Join-Path $buildDir "$pkgName.exe") $pkgDir -Force

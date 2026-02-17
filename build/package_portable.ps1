@@ -24,15 +24,22 @@ Invoke-WebRequest $pythonUrl -OutFile $pythonZip
 Expand-Archive $pythonZip -DestinationPath (Join-Path $pkgDir "python") -Force
 Remove-Item $pythonZip -Force
 
-# 2) Configure Python to support pip
+# 2) Configure Python to support pip and local imports
 Write-Host "[2/5] 配置 Python 环境..." -ForegroundColor Green
 $pythonDir = Join-Path $pkgDir "python"
 $pthFile = Get-ChildItem -Path $pythonDir -Filter "*._pth" | Select-Object -First 1
 
 if ($pthFile) {
-    $content = Get-Content $pthFile.FullName
-    $content = $content -replace "^#import site", "import site"
-    Set-Content $pthFile.FullName $content
+    # Enable site-packages and add parent directory to path
+    $pthContent = @"
+python313.zip
+.
+..
+
+# Uncomment to run site.main() automatically
+import site
+"@
+    Set-Content $pthFile.FullName $pthContent
 }
 
 # Download get-pip.py
@@ -91,6 +98,9 @@ set "PYTHON_EXE=%ROOT%python\python.exe"
 set "CHROME_BROWSER_PATH=%ROOT%chrome-win64\chrome.exe"
 set "CHROME_DRIVER_PATH=%ROOT%chromedriver.exe"
 
+REM Add current directory to PYTHONPATH so Python can find local modules
+set "PYTHONPATH=%ROOT%"
+
 if not exist "%PYTHON_EXE%" (
   echo [错误] Python 未找到: %PYTHON_EXE%
   pause
@@ -109,6 +119,7 @@ if not exist "%CHROME_DRIVER_PATH%" (
   exit /b 1
 )
 
+cd /d "%ROOT%"
 "%PYTHON_EXE%" "%ROOT%main.py"
 
 endlocal
