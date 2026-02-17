@@ -25,9 +25,11 @@ from time import strftime
 以下三个常量请自行配置
 '''
 # Chrome 浏览器的可执行程序路径，用于告诉 Selenium 使用哪个浏览器
+# 默认使用项目根目录下打包的版本（chrome-win64\chrome.exe）
 CHROME_BROWSER_PATH = r"chrome-win64\chrome.exe"
 
 # ChromeDriver 的路径，是与 Chrome 浏览器匹配的 WebDriver 控制工具
+# 默认使用项目根目录下打包的版本
 CHROME_DRIVER_PATH = r"chromedriver.exe"
 
 # 存放收藏集二维码图片的路径，程序从该文件中读取并识别二维码内容

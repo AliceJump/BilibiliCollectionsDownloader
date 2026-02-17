@@ -1,0 +1,8 @@
+# Python 3.13.3
+pyzbar
+selenium-wire
+setuptools
+opencv-python
+requests
+selenium
+blinker==1.7.0

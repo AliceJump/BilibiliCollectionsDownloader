@@ -22,6 +22,17 @@ pip install blinker==1.7.0
 - 下载并配置 Chrome 浏览器
 - 下载并配置 ChromeDriver（确保版本与您的 Chrome 浏览器版本匹配）。
 
+### 2.1 配套 Chrome/ChromeDriver 的推荐工作流（免改代码）
+将与 Chrome 版本匹配的 Chrome 与 ChromeDriver 直接放到项目根目录：
+
+```
+chrome-win64/
+	chrome.exe
+chromedriver.exe
+```
+
+启动时使用 [start.bat](start.bat)（会检测上述文件并运行脚本）。
+
 ### 3. 配置常量
 修改py文件内以下常量以适应您的环境：
 - `CHROME_BROWSER_PATH`：指向您本地的 Chrome 浏览器可执行文件路径。
@@ -43,6 +54,8 @@ pip install blinker==1.7.0
 ```bash
 python bilicollectiondownloader.py
 ```
+
+或直接双击 [start.bat](start.bat)。
 
 ### 输出文件结构
 下载的视频和图片将被存储在 `dlc` 目录下，按照活动名称和资源类型（视频/图片）进行分类。
