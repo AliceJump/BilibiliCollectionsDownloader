@@ -1,0 +1,104 @@
+name: Build Portable
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1️⃣ 下载 Python 3.13.3 embeddable
+      - name: Download Python 3.13.3 embeddable
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            https://www.python.org/ftp/python/3.13.3/python-3.13.3-embed-amd64.zip `
+            -OutFile python.zip
+
+          Expand-Archive python.zip -DestinationPath portable -Force
+          Remove-Item python.zip
+
+      # 2️⃣ 开启 site-packages 支持
+      - name: Enable site-packages
+        shell: pwsh
+        run: |
+          $pth = Get-Content portable\python313._pth
+          $pth = $pth -replace '#import site', 'import site'
+          Set-Content portable\python313._pth $pth
+
+      # 3️⃣ 安装 pip
+      - name: Install pip
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://bootstrap.pypa.io/get-pip.py -OutFile portable\get-pip.py
+          portable\python.exe portable\get-pip.py
+
+      # 4️⃣ 安装你的依赖
+      - name: Install dependencies
+        run: |
+          portable\python.exe -m pip install --upgrade pip
+          portable\python.exe -m pip install seleniumwire selenium opencv-python pyzbar requests
+
+      # 5️⃣ 下载 Chrome + chromedriver
+      - name: Download Chrome
+        shell: pwsh
+        run: |
+          $url = "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json"
+          $json = Invoke-RestMethod $url
+
+          $chrome = $json.channels.Stable.downloads.chrome |
+            Where-Object { $_.platform -eq "win64" } |
+            Select-Object -First 1
+
+          $driver = $json.channels.Stable.downloads.chromedriver |
+            Where-Object { $_.platform -eq "win64" } |
+            Select-Object -First 1
+
+          Invoke-WebRequest $chrome.url -OutFile chrome.zip
+          Invoke-WebRequest $driver.url -OutFile driver.zip
+
+          Expand-Archive chrome.zip -DestinationPath portable -Force
+          Expand-Archive driver.zip -DestinationPath portable -Force
+
+          Copy-Item portable\chromedriver-win64\chromedriver.exe portable\chromedriver.exe -Force
+          Remove-Item portable\chromedriver-win64 -Recurse -Force
+          Remove-Item chrome.zip, driver.zip
+
+      # 6️⃣ 复制 main.py
+      - name: Copy project files
+        shell: pwsh
+        run: |
+          Copy-Item main.py portable\
+          Copy-Item README.md portable\ -ErrorAction SilentlyContinue
+
+      # 7️⃣ 生成 start.bat
+      - name: Create start.bat
+        shell: pwsh
+        run: |
+          @"
+@echo off
+set ROOT=%~dp0
+"%ROOT%python.exe" "%ROOT%main.py"
+pause
+"@ | Out-File portable\start.bat -Encoding ascii
+
+      # 8️⃣ 打包
+      - name: Zip portable
+        run: |
+          Compress-Archive -Path portable -DestinationPath BilibiliCollectionsDownloader-windows.zip
+
+      # 9️⃣ 发布
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: BilibiliCollectionsDownloader-windows.zip
