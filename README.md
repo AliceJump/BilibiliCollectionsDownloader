@@ -3,62 +3,74 @@
 
 这个 Python 脚本用于自动从 B 站的收藏集中下载视频和图片。通过扫描二维码获取收藏集 URL，并使用 Selenium 和 API 提取相关资源链接，最终实现批量下载。
 
-## 使用须知
-### 可以使用我打包的软件包
-#### 1.在qrcodes文件夹内放置带有收藏集分享二维码的图片(.jpg或.png)
-#### 2.然后点击"start.bat"文件则开始下载过程
-## 或遵循以下步骤
-### 1. 安装依赖
-你可以通过以下命令安装依赖：
+## 快速开始
+
+### 方式 1：使用预构建版本（推荐）
+
+从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载最新版本：
+
+- **便携版**（推荐）：包含 Python 3.13.3 + Chrome + ChromeDriver，解压即用
+- **EXE 版**：单文件可执行程序 + Chrome + ChromeDriver
+
+使用步骤：
+1. 解压下载的 zip 文件
+2. 在 `qrcodes` 文件夹放置收藏集分享二维码图片（或编辑 `urls.txt` 添加链接）
+3. 双击 `start.bat` 启动程序
+
+### 方式 2：从源码运行
+
+#### 1. 安装依赖
+
 ```bash
-pip install pyzbar selenium-wire setuptools opencv-python requests selenium
-```
-执行完上面的命令后执行
-```bash
-pip install blinker==1.7.0
+pip install -r requirements.txt
 ```
 
-### 2. 环境配置
-- 下载并配置 Chrome 浏览器
-- 下载并配置 ChromeDriver（确保版本与您的 Chrome 浏览器版本匹配）。
+#### 2. 环境配置
 
-### 2.1 配套 Chrome/ChromeDriver 的推荐工作流（免改代码）
-将与 Chrome 版本匹配的 Chrome 与 ChromeDriver 直接放到项目根目录：
+将 Chrome 和 ChromeDriver 放到项目根目录：
 
 ```
 chrome-win64/
-	chrome.exe
+  chrome.exe
 chromedriver.exe
 ```
 
-启动时使用 [start.bat](start.bat)（会检测上述文件并运行脚本）。
+或者在 [config.py](config.py) 中配置路径。
 
-### 3. 配置常量
-修改py文件内以下常量以适应您的环境：
-- `CHROME_BROWSER_PATH`：指向您本地的 Chrome 浏览器可执行文件路径。
-- `CHROME_DRIVER_PATH`：指向与 Chrome 版本匹配的 ChromeDriver 可执行文件路径。
-- `QRCODE_IMAGE_PATH`：指向保存二维码图片的目录，二维码图片可以通过分享收藏集页面后保存的二维码文件获得。
-
-### 4. 下载视频和图片
-脚本将扫描存放二维码的文件夹（`qrcodes`），提取二维码中包含的 URL，访问该 URL 获取收藏集信息，进而下载视频和图片。
-
-### 5. 配置下载选项
-- `VIDEO_WATER_TYPE`：设置为 `True` 时下载高质量水印版视频，设置为 `False` 时下载无水印版视频。
-
-## 使用方法
-
-1. 将二维码图片文件(可以在收藏集页面点击分享后保存图片)放入 `qrcodes` 文件夹，或将链接写入 `urls.txt`（每行一个）。
-2. 修改脚本中的常量配置（如使用打包版本则无需配置）。
-3. 运行脚本，程序将自动扫描二维码或读取链接并下载对应的视频和图片。
+#### 3. 运行程序
 
 ```bash
 python main.py
 ```
 
-或直接双击 [start.bat](start.bat)。
+程序启动后会提示选择：
+- 输入方式：扫描二维码 / 读取 urls.txt
+- 视频类型：无水印 / 有水印 / 两者都下载
+
+## 开发者打包
+
+本地打包（需要 Python 3.13.3）：
+
+```bash
+# Windows
+build.bat
+
+# 手动打包
+.\build\package_portable.ps1  # 便携版
+.\build\package_exe.ps1       # EXE 版
+```
 
 ### 输出文件结构
-下载的视频和图片将被存储在 `dlc` 目录下，按照活动名称和资源类型（视频/图片）进行分类。
+
+下载的视频和图片将被存储在 `dlc` 目录下，按照活动名称和资源类型（视频/图片）进行分类：
+
+```
+dlc/
+└── <活动名>/
+    ├── video/              # 无水印视频
+    ├── watermark_video/    # 有水印视频
+    └── img/                # 图片
+```
 
 
 ## 项目结构

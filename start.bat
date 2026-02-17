@@ -19,8 +19,8 @@ if not exist "%CHROME_DRIVER_PATH%" (
   exit /b 1
 )
 
-if exist "%ROOT%python-embed\Scripts\python.exe" (
-  "%ROOT%python-embed\Scripts\python.exe" "%ROOT%main.py"
+if exist "%ROOT%.venv\Scripts\python.exe" (
+  "%ROOT%.venv\Scripts\python.exe" "%ROOT%main.py"
 ) else (
   python "%ROOT%main.py"
 )
