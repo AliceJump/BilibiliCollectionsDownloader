@@ -80,16 +80,17 @@ jobs:
           Copy-Item main.py portable\
           Copy-Item README.md portable\ -ErrorAction SilentlyContinue
 
-      # 7️⃣ 生成 start.bat
+            # 7️⃣ 生成 start.bat
       - name: Create start.bat
         shell: pwsh
         run: |
           @"
-@echo off
-set ROOT=%~dp0
-"%ROOT%python.exe" "%ROOT%main.py"
-pause
-"@ | Out-File portable\start.bat -Encoding ascii
+          @echo off
+          set ROOT=%~dp0
+          "%ROOT%python.exe" "%ROOT%main.py"
+          pause
+          "@ | Out-File portable\start.bat -Encoding ascii
+
 
       # 8️⃣ 打包
       - name: Zip portable
