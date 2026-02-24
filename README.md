@@ -5,22 +5,20 @@
 
 ## 快速开始
 
-### 最简单的方式：使用预构建 EXE（推荐）
+### 最简单的方式：使用便携版Python包（推荐）
 
-从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载 `BilibiliCollectionsDownloader-Standalone-Windows.zip`：
+从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载 `BiliCollectionDownloader.7z`：
 
 1. **解压文件**
 2. **放置输入**：
    - 将收藏集分享二维码图片放入 `qrcodes` 文件夹，或
    - 编辑 `urls.txt`，每行一个链接
 3. **运行程序**：
-   - 双击 `start.bat`，或
-   - 直接运行 `BilibiliCollectionsDownloader.exe`
+   - 双击 `start.bat`
 4. **选择选项**：
    - 输入方式：1（二维码）或 2（urls.txt）
    - 视频类型：1（无水印）/ 2（有水印）/ 12（两者）
 
-完全独立，无需安装 Python！
 
 ### 从源码运行
 
