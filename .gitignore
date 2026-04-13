@@ -1,0 +1,25 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / build
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Runtime logs
+logs/
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

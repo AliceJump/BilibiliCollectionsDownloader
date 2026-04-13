@@ -1,9 +1,117 @@
 
-# B 站收藏集下载脚本
+# B 站收藏集下载器
 
-这个 Python 脚本用于自动从 B 站的收藏集中下载视频和图片。通过扫描二维码获取收藏集 URL，并使用 Selenium 和 API 提取相关资源链接，最终实现批量下载。
+从 B 站收藏集中下载视频和图片。提供三种使用方式：
 
-## 快速开始
+- **🖥️ 本地服务端模式（推荐）** — 启动轻量 Flask 服务器，后端代理 B 站 API（解决 CORS），前端展示下载链接，后端不存储任何文件
+- **🌐 网页版（纯浏览器）** — 单个 HTML 文件，直接在浏览器中运行，无需安装任何依赖（可能受 CORS 限制）
+- **💻 命令行版** — Python 脚本，支持批量自动下载到本地
+
+---
+
+## 🪟 桌面应用模式（打包成 EXE）
+
+### 特点
+
+- **原生窗口**：使用 `pywebview` 嵌套 Flask，界面在系统原生窗口中渲染，不弹浏览器标签页
+- **一键运行**：打包后生成单个 `BiliCollectionDownloader.exe`，无需安装 Python
+- **解决 CORS**：同样通过本地 Flask 代理转发 B 站 API，无跨域限制
+
+### 构建方法
+
+1. 安装依赖：
+
+   ```bash
+   pip install -r requirements.txt
+   pip install pyinstaller "pywebview[edgechromium]"
+   ```
+
+2. 打包：
+
+   ```bash
+   pyinstaller build.spec
+   ```
+
+3. 输出文件：`dist/BiliCollectionDownloader.exe`
+
+> **注意（Windows）**：`pywebview` 的 `edgechromium` 后端依赖系统自带的 Microsoft Edge WebView2 运行时（Windows 10/11 已内置）。如遇启动问题，请到 [微软官网](https://developer.microsoft.com/microsoft-edge/webview2/) 下载安装。
+
+### 直接运行（不打包）
+
+```bash
+python app.py
+```
+
+---
+
+## 🖥️ 本地服务端模式（推荐）
+
+### 特点
+
+- **解决 CORS**：后端代理转发对 `api.bilibili.com` 的请求，浏览器无跨域限制
+- **不存储文件**：后端仅获取并返回下载链接，不保存任何视频或图片
+- **轻量依赖**：只需 `flask` 和 `requests`
+
+### 使用方法
+
+1. 安装依赖：
+
+   ```bash
+   pip install flask requests
+   # 或
+   pip install -r requirements.txt
+   ```
+
+2. 启动服务器：
+
+   ```bash
+   python server.py
+   ```
+
+3. 用浏览器访问 <http://127.0.0.1:5000>，使用方式与网页版相同
+
+---
+
+## 🌐 网页版（`index.html`，纯浏览器）
+
+### 特点
+
+- **纯本地运行**：所有处理均在浏览器端完成，不依赖任何服务端转发
+- **零安装**：只需一个 `index.html` 文件，用浏览器打开即可
+- **多种输入方式**：粘贴链接 / 上传二维码 / 手动输入 ID
+
+### 使用方法
+
+1. 下载或克隆本仓库，直接用浏览器打开 `index.html`
+2. 选择输入方式：
+   - **粘贴链接**：将收藏集分享链接粘贴到文本框（每行一个）
+   - **上传二维码**：上传收藏集分享二维码图片，自动识别链接
+   - **手动输入 ID**：直接填写 `act_id` 和 `lottery_id`
+3. 勾选需要下载的内容类型（图片 / 无水印视频 / 带水印视频）
+4. 点击 **🚀 获取下载链接**
+5. 在结果卡片中点击对应链接下载，或点击 **⬇️ 全部打开下载链接**
+
+### 链接格式说明
+
+收藏集分享链接须包含 `act_id` 和 `lottery_id` 两个参数，例如：
+
+```
+https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&lottery_id=12345
+```
+
+### 跨域（CORS）说明
+
+浏览器的同源策略可能会阻止对 `api.bilibili.com` 的请求。如遇网络请求失败，可尝试：
+
+- 安装浏览器扩展 **CORS Unblock**（Chrome/Edge）后重试
+- 或以以下参数启动 Chrome（仅用于本地调试）：
+  ```
+  chrome.exe --disable-web-security --user-data-dir=C:\tmp\nocsec
+  ```
+
+---
+
+## 🖥️ 命令行版
 
 ### 最简单的方式：使用便携版Python包（推荐）
 
@@ -63,8 +171,13 @@ dlc/
 
 **源码版本**（用于开发）：
 ```
-app.py                   # 单文件主程序（包含所有功能）
-requirements.txt         # 依赖列表
+app.py                   # 桌面应用入口（pywebview + Flask，可打包为 EXE）
+server.py                # 本地服务端（Flask 代理，推荐）
+index.html               # 网页版前端（也可单独用浏览器打开）
+requirements.txt         # 运行时依赖（flask, requests, pywebview）
+dev-requirements.txt     # 开发依赖（pyinstaller）
+build.spec               # PyInstaller 打包规格文件
+main.py                  # 命令行版主程序（包含所有功能）
 start.bat               # 启动脚本
 qrcodes/                # 放置二维码图片
 urls.txt                # 链接列表
@@ -85,8 +198,10 @@ urls.txt                            # 链接列表
 README.md                           # 使用说明
 ```
 
-### 1. 二维码未能识别
+## 常见问题
+
+### 1. 二维码未能识别（命令行版）
 确保二维码图片路径正确，并且二维码内容为有效的 B 站收藏集分享链接。
 
-### 2. 无法下载视频或图片
+### 2. 无法下载视频或图片（命令行版）
 请检查 Chrome 和 ChromeDriver 的配置是否正确，确保浏览器和驱动版本匹配。

@@ -102,3 +102,31 @@ pause
         uses: softprops/action-gh-release@v2
         with:
           files: BilibiliCollectionsDownloader-windows.zip
+
+  build-exe:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r dev-requirements.txt
+          pip install "pywebview[edgechromium]"
+
+      - name: Build EXE
+        shell: pwsh
+        run: pyinstaller build.spec
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/BiliCollectionDownloader.exe

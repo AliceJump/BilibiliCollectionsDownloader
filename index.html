@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B 站收藏集下载器</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    :root {
+      --pink: #fb7299;
+      --pink-dark: #e05c84;
+      --pink-light: rgba(251,114,153,.08);
+      --green: #52c41a;
+      --bg: #f4f5f7;
+      --card: #fff;
+      --text: #18191c;
+      --sub: #9499a0;
+      --border: #e3e5e7;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #fb7299 0%, #ff9f8c 100%);
+      color: #fff;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 10px rgba(251,114,153,.35);
+    }
+    header .logo { font-size: 30px; line-height: 1; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header .sub { font-size: 12px; opacity: .85; margin-top: 2px; }
+
+    /* ── Layout ── */
+    .wrap {
+      max-width: 860px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 26px;
+      margin-bottom: 18px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    /* ── act_id input row ── */
+    .id-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .id-row input {
+      flex: 1;
+      padding: 10px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text);
+      transition: border-color .15s;
+    }
+    .id-row input:focus { outline: none; border-color: var(--pink); }
+    .hint { font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+    /* ── QR drop zone ── */
+    .qr-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .qr-label { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .qr-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: border-color .15s, background .15s;
+    }
+    .qr-zone:hover, .qr-zone.over { border-color: var(--pink); background: var(--pink-light); }
+    .qr-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .qr-zone .icon { font-size: 30px; margin-bottom: 6px; }
+    .qr-zone p { font-size: 13px; color: var(--sub); line-height: 1.6; }
+
+    .qr-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .qr-thumb {
+      width: 70px; height: 70px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .qr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .qr-badge {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,.55); color: #fff;
+      font-size: 10px; text-align: center; padding: 1px 0;
+    }
+    .qr-thumb.ok { border-color: var(--green); }
+    .qr-thumb.fail { border-color: #ff4d4f; }
+
+    /* ── Options ── */
+    .opts-row {
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    .opts-label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .chk-grp { display: flex; gap: 14px; flex-wrap: wrap; }
+    .chk-label { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+    .chk-label input { width: 15px; height: 15px; accent-color: var(--pink); cursor: pointer; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 9px 22px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s, transform .1s, opacity .15s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--pink); color: #fff; }
+    .btn-primary:hover { background: var(--pink-dark); }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .btn-ghost { background: var(--border); color: var(--text); }
+    .btn-ghost:hover { background: #d5d8dc; }
+    .btn-green { background: var(--green); color: #fff; font-size: 12px; padding: 7px 14px; }
+    .btn-green:hover { background: #389e0d; }
+
+    .actions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; flex-wrap: wrap; gap: 8px; }
+
+    /* ── Progress ── */
+    .prog-wrap { display: none; }
+    .prog-wrap.on { display: block; }
+    .prog-bar-bg { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    .prog-bar { height: 100%; background: linear-gradient(90deg, var(--pink), #ff9f8c); border-radius: 99px; width: 0; transition: width .35s; }
+    .prog-text { font-size: 12px; color: var(--sub); }
+
+    /* ── Alerts ── */
+    .alert {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 14px; border-radius: 7px; font-size: 12.5px; margin-bottom: 9px;
+    }
+    .alert-ok  { background: #f6ffed; border: 1px solid #b7eb8f; color: #135200; }
+    .alert-err { background: #fff2f0; border: 1px solid #ffccc7; color: #a8071a; }
+    .alert-warn { background: #fffbe6; border: 1px solid #ffe58f; color: #613400; }
+
+    /* ── Results ── */
+    .results-wrap { display: none; }
+    .results-wrap.on { display: block; }
+
+    .result-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+    }
+
+    .coll-block { margin-bottom: 10px; }
+    .coll-name { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .coll-sub { font-size: 12px; color: var(--sub); margin-bottom: 14px; }
+
+    .dl-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .dl-item {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      background: var(--card);
+    }
+    .dl-item-name {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .dl-links { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .dl-a {
+      display: inline-block; padding: 4px 10px; border-radius: 4px;
+      font-size: 12px; font-weight: 500; text-decoration: none;
+      transition: opacity .15s;
+    }
+    .dl-a:hover { opacity: .8; }
+    .dl-a-img   { background: #e6f4ff; color: #1677ff; }
+    .dl-a-vid   { background: #f6ffed; color: #389e0d; }
+    .dl-a-wm    { background: #fff7e6; color: #d46b08; }
+
+    /* ── Empty ── */
+    .empty { text-align: center; padding: 36px 20px; color: var(--sub); }
+    .empty .icon { font-size: 44px; margin-bottom: 10px; }
+    .empty p { font-size: 14px; }
+
+    footer {
+      text-align: center; padding: 18px 20px;
+      font-size: 11px; color: var(--sub);
+    }
+
+    @media (max-width: 560px) {
+      header { padding: 14px 16px; }
+      .wrap { padding: 0 12px; }
+      .card { padding: 18px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📦</div>
+  <div>
+    <h1>B 站收藏集下载器</h1>
+    <div class="sub">输入 act_id 或上传二维码图片</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ─── Input card ─── -->
+  <div class="card">
+    <div class="card-title">🔍 按 act_id 查询</div>
+
+    <div class="id-row">
+      <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
+    </div>
+    <div class="hint">💡 仅需提供 <code>act_id</code>，系统自动查询所有分组。也可直接粘贴含 <code>act_id</code> 的完整链接或 b23.tv 短链接。</div>
+
+    <!-- QR upload section -->
+    <div class="qr-section">
+      <div class="qr-label">📷 或上传二维码图片</div>
+      <div class="qr-zone" id="qr-zone">
+        <input type="file" id="qr-input" accept="image/*" multiple />
+        <div class="icon">🖼️</div>
+        <p>点击选择或拖放二维码图片<br><small>支持 JPG / PNG，可多选；识别成功后自动填入 act_id 并查询</small></p>
+      </div>
+      <div class="qr-thumbs" id="qr-thumbs"></div>
+    </div>
+
+    <!-- Options -->
+    <div class="opts-row">
+      <span class="opts-label">下载内容：</span>
+      <div class="chk-grp">
+        <label class="chk-label"><input type="checkbox" id="opt-img" checked /> 🖼️ 图片</label>
+        <label class="chk-label"><input type="checkbox" id="opt-vid" checked /> 🎬 无水印视频</label>
+        <label class="chk-label"><input type="checkbox" id="opt-wm" />         💧 带水印视频</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-start" onclick="startFetch()">🚀 获取下载链接</button>
+      <button class="btn btn-ghost" onclick="clearAll()">🗑️ 清空</button>
+    </div>
+  </div>
+
+  <!-- ─── Progress ─── -->
+  <div class="card prog-wrap" id="prog-wrap">
+    <div class="card-title">⏳ 处理中…</div>
+    <div class="prog-bar-bg"><div class="prog-bar" id="prog-bar"></div></div>
+    <div class="prog-text" id="prog-text">正在获取数据…</div>
+  </div>
+
+  <!-- ─── Results ─── -->
+  <div class="results-wrap" id="results-wrap">
+    <div class="result-hdr">
+      <div class="card-title" style="margin:0">📋 下载结果</div>
+      <button class="btn btn-green" id="btn-dl-all" style="display:none" onclick="downloadAll()">⬇️ 全部打开下载链接</button>
+    </div>
+    <div id="alerts"></div>
+    <div id="results-body"></div>
+  </div>
+
+</div>
+
+<footer>B 站收藏集下载器 · 仅供学习研究，请遵守版权和用户协议</footer>
+
+<script>
+  /* ============================================================
+     State
+  ============================================================ */
+  const state = {
+    allLinks: [],   // { url: string, filename: string }
+  };
+
+  /* ============================================================
+     QR code handling
+  ============================================================ */
+  const qrInput  = document.getElementById('qr-input');
+  const qrZone   = document.getElementById('qr-zone');
+  const qrThumbs = document.getElementById('qr-thumbs');
+
+  qrInput.addEventListener('change', e => processQrFiles(e.target.files));
+
+  qrZone.addEventListener('dragover', e => { e.preventDefault(); qrZone.classList.add('over'); });
+  qrZone.addEventListener('dragleave', () => qrZone.classList.remove('over'));
+  qrZone.addEventListener('drop', e => {
+    e.preventDefault();
+    qrZone.classList.remove('over');
+    processQrFiles(e.dataTransfer.files);
+  });
+
+  /**
+   * Extract act_id from a raw string.
+   * 1. If it's a URL with act_id in the query string, return it directly.
+   * 2. If it's a bare number, return it directly.
+   * 3. Otherwise (e.g. b23.tv short link), ask the backend to follow redirects
+   *    and try extracting act_id from the final URL.
+   */
+  async function extractActId(text) {
+    text = text.trim();
+    // Direct URL with act_id param
+    try {
+      const actId = new URL(text).searchParams.get('act_id');
+      if (actId) return actId;
+    } catch (_) {}
+    // Bare number
+    if (/^\d+$/.test(text)) return text;
+    // HTTP(S) URL without act_id — may be a short link; resolve via backend
+    if (/^https?:\/\//i.test(text)) {
+      try {
+        const res = await fetch(`/api/resolve_url?url=${encodeURIComponent(text)}`);
+        const json = await res.json();
+        if (json.code === 0 && json.url) {
+          const actId = new URL(json.url).searchParams.get('act_id');
+          if (actId) return actId;
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  function processQrFiles(files) {
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          const imgData = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
+          const code = jsQR(imgData.data, imgData.width, imgData.height);
+
+          // Add a "resolving…" placeholder badge while we await
+          const thumb = document.createElement('div');
+          thumb.className = 'qr-thumb';
+          const imgEl = document.createElement('img');
+          imgEl.src = ev.target.result;
+          thumb.appendChild(imgEl);
+          const badge = document.createElement('div');
+          badge.className = 'qr-badge';
+          badge.textContent = code ? '⏳ 解析中…' : '✗ 未识别';
+          thumb.appendChild(badge);
+          qrThumbs.appendChild(thumb);
+
+          if (!code || !code.data) {
+            thumb.classList.add('fail');
+            return;
+          }
+
+          const actId = await extractActId(code.data);
+
+          thumb.classList.add(actId ? 'ok' : 'fail');
+          badge.textContent = actId ? '✓ act_id=' + actId : '✗ 无 act_id';
+
+          if (actId) {
+            document.getElementById('act-id-input').value = actId;
+            startFetch();
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /* ============================================================
+     API
+  ============================================================ */
+  async function fetchCollection(act_id, lottery_id) {
+    const res = await fetch(
+      `/api/fetch?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  /* ============================================================
+     Parse API data
+  ============================================================ */
+  function parseData(data, opts) {
+    const name = data.name || '未知收藏集';
+    const map = new Map();  // card_name → { card_name, links[] }
+
+    function processCard(card) {
+      if (!card) return;
+      const cn = card.card_name || 'unnamed';
+      if (!map.has(cn)) map.set(cn, { card_name: cn, links: [] });
+      const entry = map.get(cn);
+
+      if (opts.img && card.card_img)
+        entry.links.push({ url: card.card_img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
+
+      if (opts.vid && card.video_list && card.video_list[0])
+        entry.links.push({ url: card.video_list[0], label: '🎬 无水印', cls: 'dl-a-vid', ext: 'mp4' });
+
+      if (opts.wm && card.video_list_download && card.video_list_download[0])
+        entry.links.push({ url: card.video_list_download[0], label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
+    }
+
+    // processCardTypeInfo handles the collect_infos path whose card_type_info object
+    // uses a different schema from card_info: name/overview_image/content.animation/watermark_animations.
+    function processCardTypeInfo(cti) {
+      if (!cti) return;
+      const cn = cti.name || 'unnamed';
+      if (!map.has(cn)) map.set(cn, { card_name: cn, links: [] });
+      const entry = map.get(cn);
+
+      const img = cti.overview_image
+        || (cti.content && cti.content.animation && cti.content.animation.animation_first_frame)
+        || null;
+      if (opts.img && img)
+        entry.links.push({ url: img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
+
+      const vid = cti.content && cti.content.animation && cti.content.animation.animation_video_urls
+        && cti.content.animation.animation_video_urls[0] || null;
+      if (opts.vid && vid)
+        entry.links.push({ url: vid, label: '🎬 无水印', cls: 'dl-a-vid', ext: 'mp4' });
+
+      const wm = cti.watermark_animations && cti.watermark_animations[0]
+        && cti.watermark_animations[0].watermark_animation || null;
+      if (opts.wm && wm)
+        entry.links.push({ url: wm, label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
+    }
+
+    (data.item_list || []).forEach(item => item && processCard(item.card_info));
+
+    const cl = data.collect_list || {};
+    (cl.collect_infos || []).forEach(c => {
+      if (c && c.card_item && c.card_item.card_type_info) processCardTypeInfo(c.card_item.card_type_info);
+    });
+
+    return { name, cards: [...map.values()] };
+  }
+
+  /* ============================================================
+     Progress helpers
+  ============================================================ */
+  function setProgress(pct, text) {
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-text').textContent = text;
+  }
+  function showProgress() { document.getElementById('prog-wrap').classList.add('on'); }
+  function hideProgress() { document.getElementById('prog-wrap').classList.remove('on'); }
+
+  /* ============================================================
+     Alert helpers
+  ============================================================ */
+  function addAlert(cls, html) {
+    const d = document.createElement('div');
+    d.className = 'alert ' + cls;
+    d.innerHTML = html;
+    document.getElementById('alerts').appendChild(d);
+  }
+  function clearAlerts() { document.getElementById('alerts').innerHTML = ''; }
+
+  /* ============================================================
+     Render results (no image preview — name + download links only)
+  ============================================================ */
+  function renderResults(collections) {
+    const body = document.getElementById('results-body');
+    body.innerHTML = '';
+    state.allLinks = [];
+
+    if (!collections.length) {
+      body.innerHTML = '<div class="empty"><div class="icon">😕</div><p>未找到可下载内容</p></div>';
+      return;
+    }
+
+    const safeName = s => s.replace(/[<>:"/\\|?*\s]/g, '_');
+
+    for (const coll of collections) {
+      const block = document.createElement('div');
+      block.className = 'coll-block card';
+      block.innerHTML = `<div class="coll-name">${escHtml(coll.name)}</div>
+        <div class="coll-sub">共 ${coll.cards.length} 个卡牌</div>`;
+
+      const list = document.createElement('div');
+      list.className = 'dl-list';
+
+      for (const card of coll.cards) {
+        const item = document.createElement('div');
+        item.className = 'dl-item';
+
+        const nm = document.createElement('div');
+        nm.className = 'dl-item-name';
+        nm.title = card.card_name;
+        nm.textContent = card.card_name;
+        item.appendChild(nm);
+
+        const links = document.createElement('div');
+        links.className = 'dl-links';
+
+        for (const dl of card.links) {
+          const a = document.createElement('a');
+          a.className = 'dl-a ' + dl.cls;
+          a.href = dl.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = dl.label;
+          a.download = safeName(card.card_name) + '.' + dl.ext;
+          links.appendChild(a);
+
+          state.allLinks.push({ url: dl.url, filename: safeName(card.card_name) + '.' + dl.ext });
+        }
+
+        item.appendChild(links);
+        list.appendChild(item);
+      }
+
+      block.appendChild(list);
+      body.appendChild(block);
+    }
+
+    if (state.allLinks.length > 0)
+      document.getElementById('btn-dl-all').style.display = 'inline-flex';
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ============================================================
+     Main: start fetch
+  ============================================================ */
+  async function startFetch() {
+    const raw = document.getElementById('act-id-input').value.trim();
+    const actId = await extractActId(raw);
+
+    if (!actId) {
+      clearAlerts();
+      document.getElementById('results-wrap').classList.add('on');
+      addAlert('alert-warn', '⚠️ 请输入有效的 <code>act_id</code>（纯数字）、含 <code>act_id</code> 参数的完整链接，或 b23.tv 短链接。');
+      return;
+    }
+
+    const opts = {
+      img: document.getElementById('opt-img').checked,
+      vid: document.getElementById('opt-vid').checked,
+      wm:  document.getElementById('opt-wm').checked,
+    };
+
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    showProgress();
+    document.getElementById('results-wrap').classList.add('on');
+    clearAlerts();
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('btn-dl-all').style.display = 'none';
+
+    // Step 1: query all lottery groups for this act_id
+    setProgress(10, `正在查询分组：act_id=${actId}…`);
+    let allParams = [];
+    try {
+      const res = await fetch(`/api/get_params?act_id=${encodeURIComponent(actId)}`);
+      const json = await res.json();
+      if (json.code !== 0) {
+        addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(String(json.message || json.code))}`);
+        setProgress(100, '完成');
+        setTimeout(hideProgress, 900);
+        btn.disabled = false;
+        return;
+      }
+      allParams = json.data || [];
+    } catch (err) {
+      addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(err.message || String(err))}`);
+      setProgress(100, '完成');
+      setTimeout(hideProgress, 900);
+      btn.disabled = false;
+      return;
+    }
+
+    if (!allParams.length) {
+      addAlert('alert-warn', '⚠️ 未找到收藏集分组，请确认 act_id 是否正确。');
+      setProgress(100, '完成');
+      setTimeout(hideProgress, 900);
+      btn.disabled = false;
+      return;
+    }
+
+    // Step 2: fetch details for each group
+    const collections = [];
+    for (let i = 0; i < allParams.length; i++) {
+      const p = allParams[i];
+      setProgress(
+        Math.round(10 + 90 * i / allParams.length),
+        `正在获取 act_id=${p.act_id} lottery_id=${p.lottery_id}…`
+      );
+      try {
+        const json = await fetchCollection(p.act_id, p.lottery_id);
+        if (json.code !== 0) {
+          addAlert('alert-err', `❌ API 错误 (act_id=${escHtml(p.act_id)}): ${escHtml(String(json.message || json.code))}`);
+        } else {
+          const result = parseData(json.data || {}, opts);
+          collections.push(result);
+          addAlert('alert-ok', `✅ ${escHtml(result.name)} — ${result.cards.length} 个卡牌`);
+        }
+      } catch (err) {
+        addAlert('alert-err', `❌ 获取失败 (act_id=${escHtml(p.act_id)}): ${escHtml(err.message || String(err))}`);
+      }
+    }
+
+    setProgress(100, '完成');
+    setTimeout(hideProgress, 900);
+    renderResults(collections);
+    btn.disabled = false;
+  }
+
+  /* ============================================================
+     Download all (open links sequentially)
+  ============================================================ */
+  function downloadAll() {
+    state.allLinks.forEach((link, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = link.url;
+        a.download = link.filename;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, i * 350);
+    });
+  }
+
+  /* ============================================================
+     Clear all
+  ============================================================ */
+  function clearAll() {
+    document.getElementById('act-id-input').value = '';
+    document.getElementById('qr-thumbs').innerHTML = '';
+    document.getElementById('qr-input').value = '';
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('alerts').innerHTML = '';
+    document.getElementById('results-wrap').classList.remove('on');
+    document.getElementById('btn-dl-all').style.display = 'none';
+    hideProgress();
+    state.allLinks = [];
+  }
+</script>
+</body>
+</html>
