@@ -12,19 +12,19 @@ import sys
 
 block_cipher = None
 
-# Bundle index.html into the root of the archive
+# Bundle index.html and bilibili_api data files into the archive
 added_files = [
     ("index.html", "."),
 ]
 
-# hidden_imports for pywebview and Flask
+# hidden_imports for pywebview, Flask, and bilibili-api
 hidden_imports = (
     collect_submodules("webview")
     + collect_submodules("flask")
     + collect_submodules("jinja2")
     + collect_submodules("werkzeug")
+    + collect_submodules("bilibili_api")
     + [
-        "requests",
         "engineio",
         "clr_loader",   # needed by pythonnet / edgechromium on Windows
     ]
@@ -34,7 +34,7 @@ a = Analysis(
     ["app.py"],
     pathex=[],
     binaries=[],
-    datas=added_files + collect_data_files("webview"),
+    datas=added_files + collect_data_files("webview") + collect_data_files("bilibili_api"),
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

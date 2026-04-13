@@ -1,20 +1,15 @@
 import os
 import logging
-import requests
 from datetime import datetime
 from flask import Flask, jsonify, request, send_file
+from bilibili_api import sync, ResponseCodeException, NetworkException
+from bilibili_api.garb import DLC
+from bilibili_api.utils.network import Api
+from bilibili_api.utils.utils import get_api
 
 app = Flask(__name__)
 
-API_URL = "https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail"
-LOTTERY_LIST_API = "https://api.bilibili.com/x/vas/dlc_act/lottery_list"
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/123.0.0.0 Safari/537.36"
-)
-REFERER = "https://www.bilibili.com/"
-REQUEST_TIMEOUT = 15
+_GARB_API = get_api("garb")
 APP_NAME = "biliCollectionDownloader"
 
 
@@ -78,51 +73,31 @@ def setup_logger(app_name: str, log_dir="logs"):
 LOGGER = setup_logger(APP_NAME)
 
 
-# ====== 通过 lottery_list 接口查询所有分组参数 ======
+# ====== 通过 bilibili-api 库查询收藏集分组参数 ======
 
 def get_lottery_params_by_act_id(act_id):
     """
-    调用 B 站 lottery_list 接口，根据 act_id 获取该活动下所有分组的 lottery_id。
-    无需 Chrome 或任何浏览器依赖。
+    调用 bilibili-api 库的 DLC.get_info()，根据 act_id 获取该活动下所有分组的 lottery_id。
+    使用 /x/vas/dlc_act/act/basic 接口，无需凭据或浏览器依赖。
     返回: (params_list, error_message)
       - 成功: ([{"act_id": ..., "lottery_id": ...}, ...], None)
       - 失败: (None, "错误说明")
     """
     try:
-        LOGGER.info(f"正在查询 lottery 列表: act_id={act_id}")
-        resp = requests.get(
-            LOTTERY_LIST_API,
-            params={"act_id": act_id},
-            headers={"User-Agent": USER_AGENT, "Referer": REFERER},
-            timeout=REQUEST_TIMEOUT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        LOGGER.info(f"正在查询收藏集信息: act_id={act_id}")
+        dlc = DLC(int(act_id))
+        info = sync(dlc.get_info())
 
-        LOGGER.info(
-            f"lottery_list API 返回: code={data.get('code')}, message={data.get('message')!r}"
-        )
-
-        if data.get("code") != 0:
-            return None, f"B站API错误: {data.get('message', '未知错误')}"
-
-        # Handle multiple possible response shapes
-        result_data = data.get("data") or {}
-        lottery_list = (
-            result_data.get("lottery_list")
-            or result_data.get("list")
-            or (result_data if isinstance(result_data, list) else [])
-        )
-
+        lottery_list = info.get("lottery_list") or []
         if not lottery_list:
-            LOGGER.warning(f"lottery_list API 未返回分组数据: {data}")
+            LOGGER.warning(f"act/basic 未返回分组数据: {info}")
             return None, "未找到收藏集分组信息，请确认 act_id 是否正确"
 
         params_list = []
         for lottery in lottery_list:
             if not isinstance(lottery, dict):
                 continue
-            lot_id = lottery.get("lottery_id") or lottery.get("id")
+            lot_id = lottery.get("lottery_id")
             if lot_id:
                 params_list.append({"act_id": str(act_id), "lottery_id": str(lot_id)})
                 LOGGER.info(f"提取参数: act_id={act_id}, lottery_id={lot_id}")
@@ -132,14 +107,14 @@ def get_lottery_params_by_act_id(act_id):
 
         return params_list, None
 
-    except requests.Timeout:
-        LOGGER.error(f"查询 lottery 列表超时: act_id={act_id}")
-        return None, "请求超时，请稍后重试"
-    except requests.RequestException as e:
-        LOGGER.error(f"查询 lottery 列表失败: {e}")
-        return None, "请求 B 站 API 失败，请稍后重试"
+    except ResponseCodeException as e:
+        LOGGER.error(f"B站API错误 (act_id={act_id}): code={e.code}, msg={e.msg}")
+        return None, f"B站API错误: {e.msg}"
+    except NetworkException as e:
+        LOGGER.error(f"网络请求失败 (act_id={act_id}): {e}")
+        return None, "请求超时或网络错误，请稍后重试"
     except Exception as e:
-        LOGGER.error(f"处理 lottery 列表失败: {e}", exc_info=True)
+        LOGGER.error(f"查询收藏集信息失败: {e}", exc_info=True)
         return None, "查询时发生错误，请查看服务端日志了解详情"
 
 
@@ -165,34 +140,31 @@ def fetch():
         return jsonify({"code": -1, "message": "act_id 和 lottery_id 必须为数字"}), 400
 
     try:
-        LOGGER.info(f"向 B 站 API 发起请求: act_id={act_id}, lottery_id={lottery_id}")
-        resp = requests.get(
-            API_URL,
-            params={"act_id": act_id, "lottery_id": lottery_id},
-            headers={"User-Agent": USER_AGENT, "Referer": REFERER},
-            timeout=REQUEST_TIMEOUT,
+        LOGGER.info(f"通过 bilibili-api 获取收藏集详情: act_id={act_id}, lottery_id={lottery_id}")
+        api = _GARB_API["dlc"]["detail"]
+        data = sync(
+            Api(**api).update_params(act_id=int(act_id), lottery_id=int(lottery_id)).result
         )
-        resp.raise_for_status()
-        data = resp.json()
-        LOGGER.info(
-            f"B 站 API 返回: code={data.get('code')}, message={data.get('message')!r}"
-        )
-        return jsonify(data)
-    except requests.Timeout:
-        LOGGER.error(f"请求 B 站 API 超时: act_id={act_id}, lottery_id={lottery_id}")
-        return jsonify({"code": -1, "message": "请求超时，请稍后重试"}), 504
-    except requests.RequestException as e:
-        LOGGER.error(f"请求 B 站 API 失败: {e}")
+        LOGGER.info(f"收藏集详情获取成功: act_id={act_id}, lottery_id={lottery_id}")
+        return jsonify({"code": 0, "message": "0", "data": data})
+    except ResponseCodeException as e:
+        LOGGER.error(f"B站API错误 (act_id={act_id}, lottery_id={lottery_id}): code={e.code}, msg={e.msg}")
+        return jsonify({"code": e.code, "message": e.msg}), 400
+    except NetworkException as e:
+        LOGGER.error(f"网络请求失败 (act_id={act_id}, lottery_id={lottery_id}): {e}")
+        return jsonify({"code": -1, "message": "请求超时或网络错误，请稍后重试"}), 504
+    except Exception as e:
+        LOGGER.error(f"获取收藏集详情失败: {e}", exc_info=True)
         return jsonify({"code": -1, "message": "请求 B 站 API 失败，请稍后重试"}), 502
 
 
 @app.route("/api/get_params")
 def get_params():
     """
-    根据 act_id 调用 B 站 lottery_list 接口，获取该活动下所有分组的 lottery_id。
+    根据 act_id 通过 bilibili-api 库查询收藏集基本信息，返回所有分组的 lottery_id。
     参数:
       act_id — 活动 ID（必填）
-    无需 Chrome 或任何浏览器依赖。
+    使用 /x/vas/dlc_act/act/basic 接口，无需凭据或浏览器依赖。
     """
     act_id = request.args.get("act_id", "").strip()
 
