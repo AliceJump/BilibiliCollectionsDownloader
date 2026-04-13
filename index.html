@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B 站收藏集下载器</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    :root {
+      --pink: #fb7299;
+      --pink-dark: #e05c84;
+      --pink-light: rgba(251,114,153,.08);
+      --blue: #00a1d6;
+      --green: #52c41a;
+      --orange: #fa8c16;
+      --bg: #f4f5f7;
+      --card: #fff;
+      --text: #18191c;
+      --sub: #9499a0;
+      --border: #e3e5e7;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #fb7299 0%, #ff9f8c 100%);
+      color: #fff;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 10px rgba(251,114,153,.35);
+    }
+    header .logo { font-size: 30px; line-height: 1; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header .sub { font-size: 12px; opacity: .85; margin-top: 2px; }
+
+    /* ── Layout ── */
+    .wrap {
+      max-width: 980px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 26px;
+      margin-bottom: 18px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 18px;
+    }
+    .tab {
+      padding: 7px 16px;
+      font-size: 14px;
+      color: var(--sub);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+      user-select: none;
+    }
+    .tab.active { color: var(--pink); border-bottom-color: var(--pink); font-weight: 600; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── URL textarea ── */
+    .url-area {
+      width: 100%;
+      min-height: 96px;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: "Consolas", "Courier New", monospace;
+      resize: vertical;
+      color: var(--text);
+      transition: border-color .15s;
+      line-height: 1.6;
+    }
+    .url-area:focus { outline: none; border-color: var(--pink); }
+    .hint { font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+    /* ── QR drop zone ── */
+    .qr-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: border-color .15s, background .15s;
+    }
+    .qr-zone:hover, .qr-zone.over { border-color: var(--pink); background: var(--pink-light); }
+    .qr-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .qr-zone .icon { font-size: 34px; margin-bottom: 6px; }
+    .qr-zone p { font-size: 13px; color: var(--sub); line-height: 1.6; }
+
+    .qr-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .qr-thumb {
+      width: 70px; height: 70px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .qr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .qr-badge {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,.55); color: #fff;
+      font-size: 10px; text-align: center; padding: 1px 0;
+    }
+    .qr-thumb.ok { border-color: var(--green); }
+    .qr-thumb.fail { border-color: #ff4d4f; }
+
+    /* ── Options ── */
+    .opts-row {
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    .opts-label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .chk-grp { display: flex; gap: 14px; flex-wrap: wrap; }
+    .chk-label { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+    .chk-label input { width: 15px; height: 15px; accent-color: var(--pink); cursor: pointer; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 9px 22px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s, transform .1s, opacity .15s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--pink); color: #fff; }
+    .btn-primary:hover { background: var(--pink-dark); }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .btn-ghost { background: var(--border); color: var(--text); }
+    .btn-ghost:hover { background: #d5d8dc; }
+    .btn-green { background: var(--green); color: #fff; font-size: 12px; padding: 7px 14px; }
+    .btn-green:hover { background: #389e0d; }
+
+    .actions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; flex-wrap: wrap; gap: 8px; }
+
+    /* ── Manual input ── */
+    .manual-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+    .manual-row input {
+      flex: 1; min-width: 120px; padding: 8px 10px;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      font-size: 13px; color: var(--text);
+      transition: border-color .15s;
+    }
+    .manual-row input:focus { outline: none; border-color: var(--pink); }
+    .manual-row label { font-size: 12px; color: var(--sub); white-space: nowrap; }
+
+    /* ── Progress ── */
+    .prog-wrap { display: none; }
+    .prog-wrap.on { display: block; }
+    .prog-bar-bg { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    .prog-bar { height: 100%; background: linear-gradient(90deg, var(--pink), #ff9f8c); border-radius: 99px; width: 0; transition: width .35s; }
+    .prog-text { font-size: 12px; color: var(--sub); }
+
+    /* ── Alerts ── */
+    .alert {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 14px; border-radius: 7px; font-size: 12.5px; margin-bottom: 9px;
+    }
+    .alert-ok  { background: #f6ffed; border: 1px solid #b7eb8f; color: #135200; }
+    .alert-err { background: #fff2f0; border: 1px solid #ffccc7; color: #a8071a; }
+    .alert-warn { background: #fffbe6; border: 1px solid #ffe58f; color: #613400; }
+    .alert-info { background: #e6f4ff; border: 1px solid #91caff; color: #003eb3; }
+
+    /* ── Results ── */
+    .results-wrap { display: none; }
+    .results-wrap.on { display: block; }
+
+    .result-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+    }
+
+    .coll-block { margin-bottom: 10px; }
+    .coll-name { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .coll-sub { font-size: 12px; color: var(--sub); margin-bottom: 14px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+
+    .dl-card {
+      border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden;
+      transition: box-shadow .15s, transform .15s;
+      background: var(--card);
+    }
+    .dl-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+
+    .dl-card-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
+    .dl-card-placeholder {
+      width: 100%; aspect-ratio: 1; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; color: var(--border);
+    }
+
+    .dl-card-body { padding: 9px; }
+    .dl-card-name {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-bottom: 7px;
+    }
+    .dl-links { display: flex; flex-direction: column; gap: 4px; }
+
+    .dl-a {
+      display: block; padding: 4px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; text-decoration: none; text-align: center;
+      transition: opacity .15s;
+    }
+    .dl-a:hover { opacity: .8; }
+    .dl-a-img   { background: #e6f4ff; color: #1677ff; }
+    .dl-a-vid   { background: #f6ffed; color: #389e0d; }
+    .dl-a-wm    { background: #fff7e6; color: #d46b08; }
+
+    /* ── Empty ── */
+    .empty { text-align: center; padding: 36px 20px; color: var(--sub); }
+    .empty .icon { font-size: 44px; margin-bottom: 10px; }
+    .empty p { font-size: 14px; }
+
+    footer {
+      text-align: center; padding: 18px 20px;
+      font-size: 11px; color: var(--sub);
+    }
+
+    @media (max-width: 560px) {
+      header { padding: 14px 16px; }
+      .wrap { padding: 0 12px; }
+      .card { padding: 18px 16px; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📦</div>
+  <div>
+    <h1>B 站收藏集下载器</h1>
+    <div class="sub">纯浏览器端运行，无需服务端 · All processing is local</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ─── Input card ─── -->
+  <div class="card">
+    <div class="card-title">📥 输入收藏集</div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="url">🔗 粘贴链接</div>
+      <div class="tab" data-tab="qr">📷 上传二维码</div>
+      <div class="tab" data-tab="manual">🔧 手动输入 ID</div>
+    </div>
+
+    <!-- URL panel -->
+    <div class="panel active" id="panel-url">
+      <textarea class="url-area" id="url-input"
+        placeholder="粘贴 B 站收藏集分享链接，每行一个&#10;例：https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&amp;lottery_id=12345"></textarea>
+      <div class="hint">💡 链接中须包含 <code>act_id</code> 和 <code>lottery_id</code> 两个参数</div>
+    </div>
+
+    <!-- QR panel -->
+    <div class="panel" id="panel-qr">
+      <div class="qr-zone" id="qr-zone">
+        <input type="file" id="qr-input" accept="image/*" multiple />
+        <div class="icon">🖼️</div>
+        <p>点击选择或拖放二维码图片<br><small>支持 JPG / PNG，可多选</small></p>
+      </div>
+      <div class="qr-thumbs" id="qr-thumbs"></div>
+    </div>
+
+    <!-- Manual panel -->
+    <div class="panel" id="panel-manual">
+      <p class="hint" style="margin-bottom:10px;">若链接不含参数，可在此直接填写 ID（多组请点"＋添加"）</p>
+      <div id="manual-rows">
+        <div class="manual-row">
+          <label>act_id</label>
+          <input type="text" class="m-act" placeholder="例：13688" />
+          <label>lottery_id</label>
+          <input type="text" class="m-lot" placeholder="例：12345" />
+        </div>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="addManualRow()">＋ 添加一行</button>
+    </div>
+
+    <!-- Options -->
+    <div class="opts-row">
+      <span class="opts-label">下载内容：</span>
+      <div class="chk-grp">
+        <label class="chk-label"><input type="checkbox" id="opt-img" checked /> 🖼️ 图片</label>
+        <label class="chk-label"><input type="checkbox" id="opt-vid" checked /> 🎬 无水印视频</label>
+        <label class="chk-label"><input type="checkbox" id="opt-wm" />         💧 带水印视频</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-start" onclick="startFetch()">🚀 获取下载链接</button>
+      <button class="btn btn-ghost" onclick="clearAll()">🗑️ 清空</button>
+    </div>
+  </div>
+
+  <!-- ─── Progress ─── -->
+  <div class="card prog-wrap" id="prog-wrap">
+    <div class="card-title">⏳ 处理中…</div>
+    <div class="prog-bar-bg"><div class="prog-bar" id="prog-bar"></div></div>
+    <div class="prog-text" id="prog-text">正在获取数据…</div>
+  </div>
+
+  <!-- ─── Results ─── -->
+  <div class="results-wrap" id="results-wrap">
+    <div class="result-hdr">
+      <div class="card-title" style="margin:0">📋 下载结果</div>
+      <button class="btn btn-green" id="btn-dl-all" style="display:none" onclick="downloadAll()">⬇️ 全部打开下载链接</button>
+    </div>
+    <div id="alerts"></div>
+    <div id="results-body"></div>
+  </div>
+
+</div>
+
+<footer>B 站收藏集下载器 · 仅供学习研究，请遵守版权和用户协议</footer>
+
+<script>
+  /* ============================================================
+     State
+  ============================================================ */
+  const state = {
+    allLinks: [],   // { url, filename }
+  };
+
+  /* ============================================================
+     Tab switching
+  ============================================================ */
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* ============================================================
+     QR code handling
+  ============================================================ */
+  const qrInput = document.getElementById('qr-input');
+  const qrZone  = document.getElementById('qr-zone');
+  const qrThumbs = document.getElementById('qr-thumbs');
+
+  qrInput.addEventListener('change', e => processQrFiles(e.target.files));
+
+  qrZone.addEventListener('dragover', e => { e.preventDefault(); qrZone.classList.add('over'); });
+  qrZone.addEventListener('dragleave', () => qrZone.classList.remove('over'));
+  qrZone.addEventListener('drop', e => {
+    e.preventDefault();
+    qrZone.classList.remove('over');
+    processQrFiles(e.dataTransfer.files);
+  });
+
+  function processQrFiles(files) {
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          const imgData = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
+          const code = jsQR(imgData.data, imgData.width, imgData.height);
+
+          const thumb = document.createElement('div');
+          thumb.className = 'qr-thumb ' + (code ? 'ok' : 'fail');
+
+          const imgEl = document.createElement('img');
+          imgEl.src = ev.target.result;
+          thumb.appendChild(imgEl);
+
+          const badge = document.createElement('div');
+          badge.className = 'qr-badge';
+          badge.textContent = code ? '✓ 识别成功' : '✗ 未识别';
+          thumb.appendChild(badge);
+          qrThumbs.appendChild(thumb);
+
+          if (code && code.data) {
+            const ta = document.getElementById('url-input');
+            ta.value = ta.value.trim() ? ta.value.trim() + '\n' + code.data : code.data;
+            // Switch to URL tab to show the extracted link
+            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+            document.querySelector('.tab[data-tab="url"]').classList.add('active');
+            document.getElementById('panel-url').classList.add('active');
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /* ============================================================
+     Manual ID rows
+  ============================================================ */
+  function addManualRow() {
+    const row = document.createElement('div');
+    row.className = 'manual-row';
+    row.innerHTML = `
+      <label>act_id</label><input type="text" class="m-act" placeholder="例：13688" />
+      <label>lottery_id</label><input type="text" class="m-lot" placeholder="例：12345" />
+      <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;" onclick="this.parentElement.remove()">✕</button>`;
+    document.getElementById('manual-rows').appendChild(row);
+  }
+
+  /* ============================================================
+     Parse URL → {act_id, lottery_id}
+  ============================================================ */
+  function parseUrl(raw) {
+    try {
+      const url = new URL(raw.trim());
+      const act = url.searchParams.get('act_id');
+      const lot = url.searchParams.get('lottery_id');
+      if (act && lot) return { act_id: act, lottery_id: lot };
+    } catch (_) {}
+    return null;
+  }
+
+  /* ============================================================
+     Collect all param pairs from all inputs
+  ============================================================ */
+  function collectParams() {
+    const pairs = [];
+    const seen = new Set();
+
+    function add(act, lot) {
+      if (!act || !lot) return;
+      const key = act + '|' + lot;
+      if (!seen.has(key)) { seen.add(key); pairs.push({ act_id: act, lottery_id: lot }); }
+    }
+
+    // URL textarea
+    const lines = document.getElementById('url-input').value.split('\n');
+    lines.forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      const p = parseUrl(line);
+      if (p) add(p.act_id, p.lottery_id);
+    });
+
+    // Manual rows
+    document.querySelectorAll('#manual-rows .manual-row').forEach(row => {
+      const act = row.querySelector('.m-act').value.trim();
+      const lot = row.querySelector('.m-lot').value.trim();
+      add(act, lot);
+    });
+
+    return pairs;
+  }
+
+  /* ============================================================
+     API
+  ============================================================ */
+  const API = 'https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail';
+
+  async function fetchCollection(act_id, lottery_id) {
+    const url = `${API}?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`;
+    const res = await fetch(url, {
+      headers: { 'Referer': 'https://www.bilibili.com/' },
+      mode: 'cors',
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  /* ============================================================
+     Parse API data
+  ============================================================ */
+  function parseData(data, opts) {
+    const name = data.name || '未知收藏集';
+    const map = new Map();  // card_name → { card_name, card_img, links[] }
+
+    function processCard(card) {
+      if (!card) return;
+      const cn = card.card_name || 'unnamed';
+      if (!map.has(cn)) map.set(cn, { card_name: cn, card_img: card.card_img || null, links: [] });
+      const entry = map.get(cn);
+
+      if (opts.img && card.card_img)
+        entry.links.push({ url: card.card_img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
+
+      if (opts.vid && card.video_list && card.video_list[0])
+        entry.links.push({ url: card.video_list[0], label: '🎬 无水印', cls: 'dl-a-vid', ext: 'mp4' });
+
+      if (opts.wm && card.video_list_download && card.video_list_download[0])
+        entry.links.push({ url: card.video_list_download[0], label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
+    }
+
+    (data.item_list || []).forEach(item => item && processCard(item.card_info));
+
+    const cl = data.collect_list || {};
+    (cl.collect_infos || []).forEach(c => {
+      if (c && c.card_item && c.card_item.card_type_info) processCard(c.card_item.card_type_info);
+    });
+
+    return { name, cards: [...map.values()] };
+  }
+
+  /* ============================================================
+     Progress helpers
+  ============================================================ */
+  function setProgress(pct, text) {
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-text').textContent = text;
+  }
+  function showProgress() { document.getElementById('prog-wrap').classList.add('on'); }
+  function hideProgress() { document.getElementById('prog-wrap').classList.remove('on'); }
+
+  /* ============================================================
+     Alert helpers
+  ============================================================ */
+  function addAlert(cls, html) {
+    const d = document.createElement('div');
+    d.className = 'alert ' + cls;
+    d.innerHTML = html;
+    document.getElementById('alerts').appendChild(d);
+  }
+  function clearAlerts() { document.getElementById('alerts').innerHTML = ''; }
+
+  /* ============================================================
+     Render results
+  ============================================================ */
+  function renderResults(collections) {
+    const body = document.getElementById('results-body');
+    body.innerHTML = '';
+    state.allLinks = [];
+
+    if (!collections.length) {
+      body.innerHTML = '<div class="empty"><div class="icon">😕</div><p>未找到可下载内容</p></div>';
+      return;
+    }
+
+    const safeName = s => s.replace(/[<>:"/\\|?*\s]/g, '_');
+
+    for (const coll of collections) {
+      const block = document.createElement('div');
+      block.className = 'coll-block card';
+
+      block.innerHTML = `<div class="coll-name">${escHtml(coll.name)}</div>
+        <div class="coll-sub">共 ${coll.cards.length} 个卡牌</div>`;
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+
+      for (const card of coll.cards) {
+        const dc = document.createElement('div');
+        dc.className = 'dl-card';
+
+        if (card.card_img) {
+          const img = document.createElement('img');
+          img.className = 'dl-card-img';
+          img.src = card.card_img;
+          img.alt = card.card_name;
+          img.loading = 'lazy';
+          img.onerror = () => img.replaceWith(placeholder());
+          dc.appendChild(img);
+        } else {
+          dc.appendChild(placeholder());
+        }
+
+        const body2 = document.createElement('div');
+        body2.className = 'dl-card-body';
+
+        const nm = document.createElement('div');
+        nm.className = 'dl-card-name';
+        nm.title = card.card_name;
+        nm.textContent = card.card_name;
+        body2.appendChild(nm);
+
+        const links = document.createElement('div');
+        links.className = 'dl-links';
+
+        for (const dl of card.links) {
+          const a = document.createElement('a');
+          a.className = 'dl-a ' + dl.cls;
+          a.href = dl.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = dl.label;
+          a.download = safeName(card.card_name) + '.' + dl.ext;
+          links.appendChild(a);
+
+          state.allLinks.push({ url: dl.url, filename: safeName(card.card_name) + '.' + dl.ext });
+        }
+
+        body2.appendChild(links);
+        dc.appendChild(body2);
+        grid.appendChild(dc);
+      }
+
+      block.appendChild(grid);
+      body.appendChild(block);
+    }
+
+    if (state.allLinks.length > 0)
+      document.getElementById('btn-dl-all').style.display = 'inline-flex';
+  }
+
+  function placeholder() {
+    const d = document.createElement('div');
+    d.className = 'dl-card-placeholder';
+    d.textContent = '📦';
+    return d;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ============================================================
+     Main: start fetch
+  ============================================================ */
+  async function startFetch() {
+    const params = collectParams();
+    if (!params.length) {
+      clearAlerts();
+      document.getElementById('results-wrap').classList.add('on');
+      addAlert('alert-warn', '⚠️ 未找到有效参数。请在"粘贴链接"中输入含 <code>act_id</code> 和 <code>lottery_id</code> 的链接，或在"手动输入 ID"中填写。');
+      return;
+    }
+
+    const opts = {
+      img: document.getElementById('opt-img').checked,
+      vid: document.getElementById('opt-vid').checked,
+      wm:  document.getElementById('opt-wm').checked,
+    };
+
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    showProgress();
+    document.getElementById('results-wrap').classList.add('on');
+    clearAlerts();
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('btn-dl-all').style.display = 'none';
+
+    const collections = [];
+    for (let i = 0; i < params.length; i++) {
+      const p = params[i];
+      setProgress(Math.round(i / params.length * 100), `正在获取 act_id=${p.act_id} lottery_id=${p.lottery_id}…`);
+      try {
+        const json = await fetchCollection(p.act_id, p.lottery_id);
+        if (json.code !== 0) {
+          addAlert('alert-err', `❌ API 错误 (act_id=${escHtml(p.act_id)}): ${escHtml(String(json.message || json.code))}`);
+        } else {
+          const result = parseData(json.data || {}, opts);
+          collections.push(result);
+          addAlert('alert-ok', `✅ ${escHtml(result.name)} — ${result.cards.length} 个卡牌`);
+        }
+      } catch (err) {
+        let msg = err.message || String(err);
+        if (err instanceof TypeError && msg.includes('fetch')) {
+          msg = `网络请求失败，可能是浏览器的跨域（CORS）限制。<br>
+            建议：① 安装浏览器扩展 <b>CORS Unblock</b> 后重试；
+            ② 或用 Chrome 命令行参数 <code>--disable-web-security --user-data-dir=/tmp/nocsec</code> 启动。`;
+        }
+        addAlert('alert-err', `❌ 获取失败 (act_id=${escHtml(p.act_id)}): ${msg}`);
+      }
+    }
+
+    setProgress(100, '完成');
+    setTimeout(hideProgress, 900);
+    renderResults(collections);
+    btn.disabled = false;
+  }
+
+  /* ============================================================
+     Download all (open links sequentially)
+  ============================================================ */
+  function downloadAll() {
+    state.allLinks.forEach((link, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = link.url;
+        a.download = link.filename;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, i * 350);
+    });
+  }
+
+  /* ============================================================
+     Clear all
+  ============================================================ */
+  function clearAll() {
+    document.getElementById('url-input').value = '';
+    document.getElementById('qr-thumbs').innerHTML = '';
+    document.getElementById('qr-input').value = '';
+    document.querySelectorAll('#manual-rows .manual-row').forEach((r, i) => {
+      if (i === 0) { r.querySelector('.m-act').value = ''; r.querySelector('.m-lot').value = ''; }
+      else r.remove();
+    });
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('alerts').innerHTML = '';
+    document.getElementById('results-wrap').classList.remove('on');
+    document.getElementById('btn-dl-all').style.display = 'none';
+    hideProgress();
+    state.allLinks = [];
+  }
+</script>
+</body>
+</html>
