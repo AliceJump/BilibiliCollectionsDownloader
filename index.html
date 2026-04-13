@@ -280,7 +280,7 @@
       <div class="tab active" data-tab="url">🔗 粘贴链接</div>
       <div class="tab" data-tab="qr">📷 上传二维码</div>
       <div class="tab" data-tab="manual">🔧 手动输入 ID</div>
-      <div class="tab" data-tab="page">🌐 页面链接</div>
+      <div class="tab" data-tab="page">🔍 按 act_id 查询</div>
     </div>
 
     <!-- URL panel -->
@@ -317,15 +317,8 @@
     <!-- Page URL panel -->
     <div class="panel" id="panel-page">
       <textarea class="url-area" id="page-url-input"
-        placeholder="粘贴 B 站收藏集页面链接，每行一个&#10;例：https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&#10;&#10;程序将自动访问页面，从网络请求中提取 act_id 和 lottery_id（需要本地服务端 + Chrome）"></textarea>
-      <div class="hint">💡 参考 <code>main.py</code> 的方式：启动后自动点击页面所有 tab，捕获 <code>lottery_home_detail</code> 请求并提取参数。<br>
-        可选：在下方填写 Chrome / ChromeDriver 路径（留空则自动检测）</div>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-        <input type="text" id="chrome-path" style="flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"
-          placeholder="Chrome 路径（可选）例：chrome-win64\\chrome.exe" />
-        <input type="text" id="driver-path" style="flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"
-          placeholder="ChromeDriver 路径（可选）例：chromedriver.exe" />
-      </div>
+        placeholder="粘贴 B 站收藏集链接或直接填写 act_id，每行一个&#10;例（链接）：https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&#10;例（纯 ID）：13688&#10;&#10;程序将自动调用 B 站接口查询该活动下所有收藏集分组"></textarea>
+      <div class="hint">💡 仅需提供 <code>act_id</code>，系统自动查询所有分组——无需 Chrome 或任何外部组件。</div>
     </div>
 
     <!-- Options -->
@@ -510,25 +503,32 @@
   }
 
   /* ============================================================
-     Collect page URLs (tab "页面链接") that need /api/get_params
+     Collect act_ids from the "按 act_id 查询" tab.
+     Accepts full URLs (act_id extracted from params) or bare numbers.
   ============================================================ */
   function collectPageUrls() {
-    const urls = [];
+    const actIds = [];
     const seen = new Set();
     const lines = document.getElementById('page-url-input').value.split('\n');
     console.log('[collectPageUrls] page-url-input 行数:', lines.length, '内容:', lines);
     lines.forEach(line => {
       line = line.trim();
       if (!line) return;
+      let actId = null;
       try {
-        new URL(line); // 验证是否为有效 URL
-        if (!seen.has(line)) { seen.add(line); urls.push(line); }
+        actId = new URL(line).searchParams.get('act_id');
       } catch (_) {
-        console.warn('[collectPageUrls] 无效 URL，跳过:', line);
+        if (/^\d+$/.test(line)) actId = line;
+      }
+      if (actId && !seen.has(actId)) {
+        seen.add(actId);
+        actIds.push(actId);
+      } else if (!actId) {
+        console.warn('[collectPageUrls] 无法提取 act_id，跳过:', line);
       }
     });
-    console.log('[collectPageUrls] 收集到', urls.length, '个页面链接:', urls);
-    return urls;
+    console.log('[collectPageUrls] 收集到', actIds.length, '个 act_id:', actIds);
+    return actIds;
   }
 
   /* ============================================================
@@ -705,12 +705,12 @@
   async function startFetch() {
     const params = collectParams();
     const pageUrls = collectPageUrls();
-    console.log('[startFetch] 直接参数对:', params, '页面链接:', pageUrls);
+    console.log('[startFetch] 直接参数对:', params, 'act_id 列表:', pageUrls);
 
     if (!params.length && !pageUrls.length) {
       clearAlerts();
       document.getElementById('results-wrap').classList.add('on');
-      addAlert('alert-warn', '⚠️ 未找到有效参数。请在"粘贴链接"中输入含 <code>act_id</code> 和 <code>lottery_id</code> 的链接，在"手动输入 ID"中填写，或在"页面链接"中输入收藏集页面 URL。');
+      addAlert('alert-warn', '⚠️ 未找到有效参数。请在"粘贴链接"中输入含 <code>act_id</code> 和 <code>lottery_id</code> 的链接，在"手动输入 ID"中填写，或在"按 act_id 查询"中输入 act_id。');
       return;
     }
 
@@ -730,41 +730,37 @@
 
     const allParams = [...params];
 
-    // ── 页面链接模式：先调 /api/get_params 提取参数 ──
+    // ── 按 act_id 查询模式：先调 /api/get_params 提取所有分组参数 ──
     if (pageUrls.length) {
-      const chromePath = document.getElementById('chrome-path').value.trim();
-      const driverPath = document.getElementById('driver-path').value.trim();
       const seen = new Set(allParams.map(p => p.act_id + '|' + p.lottery_id));
 
       for (let i = 0; i < pageUrls.length; i++) {
-        const pageUrl = pageUrls[i];
+        const actId = pageUrls[i];
         setProgress(
           Math.round(i / (pageUrls.length + allParams.length) * 100),
-          `正在访问页面 (${i + 1}/${pageUrls.length})：${pageUrl}`
+          `正在查询分组 (${i + 1}/${pageUrls.length})：act_id=${actId}`
         );
-        console.log('[startFetch] 调用 /api/get_params:', pageUrl);
+        console.log('[startFetch] 调用 /api/get_params: act_id=', actId);
         try {
-          const qs = new URLSearchParams({ url: pageUrl });
-          if (chromePath) qs.set('chrome_path', chromePath);
-          if (driverPath) qs.set('driver_path', driverPath);
+          const qs = new URLSearchParams({ act_id: actId });
           const res = await fetch(`/api/get_params?${qs}`);
           const json = await res.json();
           console.log('[startFetch] /api/get_params 返回:', json);
           if (json.code !== 0) {
-            addAlert('alert-err', `❌ 页面参数提取失败 (${escHtml(pageUrl)}): ${escHtml(String(json.message || json.code))}`);
+            addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(String(json.message || json.code))}`);
           } else {
             (json.data || []).forEach(p => {
               const key = p.act_id + '|' + p.lottery_id;
               if (!seen.has(key)) {
                 seen.add(key);
                 allParams.push(p);
-                console.log('[startFetch] 从页面提取到参数:', p);
+                console.log('[startFetch] 从分组查询提取到参数:', p);
               }
             });
           }
         } catch (err) {
           console.error('[startFetch] /api/get_params 请求异常:', err);
-          addAlert('alert-err', `❌ 页面访问失败 (${escHtml(pageUrl)}): ${escHtml(err.message || String(err))}`);
+          addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(err.message || String(err))}`);
         }
       }
     }
@@ -840,8 +836,6 @@
     document.getElementById('qr-thumbs').innerHTML = '';
     document.getElementById('qr-input').value = '';
     document.getElementById('page-url-input').value = '';
-    document.getElementById('chrome-path').value = '';
-    document.getElementById('driver-path').value = '';
     document.querySelectorAll('#manual-rows .manual-row').forEach((r, i) => {
       if (i === 0) { r.querySelector('.m-act').value = ''; r.querySelector('.m-lot').value = ''; }
       else r.remove();

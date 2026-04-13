@@ -1,14 +1,13 @@
 import os
-import time
 import logging
 import requests
 from datetime import datetime
-from urllib.parse import urlparse, parse_qs
 from flask import Flask, jsonify, request, send_file
 
 app = Flask(__name__)
 
 API_URL = "https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail"
+LOTTERY_LIST_API = "https://api.bilibili.com/x/vas/dlc_act/lottery_list"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -79,115 +78,69 @@ def setup_logger(app_name: str, log_dir="logs"):
 LOGGER = setup_logger(APP_NAME)
 
 
-# ====== 通过页面网络请求提取参数（参考 main.py get_lottery_url）======
+# ====== 通过 lottery_list 接口查询所有分组参数 ======
 
-def get_lottery_params_from_page(page_url, chrome_path=None, driver_path=None):
+def get_lottery_params_by_act_id(act_id):
     """
-    访问 B 站收藏集页面，通过捕获页面发出的网络请求提取所有 act_id / lottery_id 参数对。
-    参考 main.py 的 get_lottery_url() 实现。
+    调用 B 站 lottery_list 接口，根据 act_id 获取该活动下所有分组的 lottery_id。
+    无需 Chrome 或任何浏览器依赖。
     返回: (params_list, error_message)
       - 成功: ([{"act_id": ..., "lottery_id": ...}, ...], None)
       - 失败: (None, "错误说明")
     """
     try:
-        from seleniumwire import webdriver
-        from selenium.webdriver.chrome.options import Options
-        from selenium.webdriver.chrome.service import Service
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-    except ImportError as e:
-        LOGGER.error(f"缺少依赖，无法使用页面模式: {e}")
-        return None, "服务端缺少 seleniumwire 依赖，请运行 pip install selenium-wire webdriver-manager"
+        LOGGER.info(f"正在查询 lottery 列表: act_id={act_id}")
+        resp = requests.get(
+            LOTTERY_LIST_API,
+            params={"act_id": act_id},
+            headers={"User-Agent": USER_AGENT, "Referer": REFERER},
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
 
-    try:
-        chrome_options = Options()
-        if chrome_path:
-            LOGGER.info(f"使用指定 Chrome 路径: {chrome_path}")
-            chrome_options.binary_location = chrome_path
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        seleniumwire_options = {"disable_encoding": True}
-
-        if driver_path:
-            LOGGER.info(f"使用指定 ChromeDriver 路径: {driver_path}")
-            service = Service(executable_path=driver_path)
-        else:
-            try:
-                from webdriver_manager.chrome import ChromeDriverManager
-                LOGGER.info("使用 webdriver-manager 自动下载 ChromeDriver")
-                service = Service(ChromeDriverManager().install())
-            except ImportError:
-                LOGGER.info("webdriver-manager 未安装，尝试使用 PATH 中的 chromedriver")
-                service = Service()
-
-        driver = webdriver.Chrome(
-            service=service,
-            options=chrome_options,
-            seleniumwire_options=seleniumwire_options,
+        LOGGER.info(
+            f"lottery_list API 返回: code={data.get('code')}, message={data.get('message')!r}"
         )
 
-        LOGGER.info(f"正在访问页面: {page_url}")
-        driver.get(page_url)
-        time.sleep(5)
+        if data.get("code") != 0:
+            return None, f"B站API错误: {data.get('message', '未知错误')}"
 
-        try:
-            WebDriverWait(driver, 10).until(
-                EC.frame_to_be_available_and_switch_to_it((By.ID, "mall-iframe"))
-            )
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".card-tabs .tab"))
-            )
-            tabs = driver.find_elements(By.CSS_SELECTOR, ".card-tabs .tab")
-            LOGGER.info(f"找到 {len(tabs)} 个 tab，依次点击以触发 API 请求")
-            for i in range(len(tabs)):
-                tabs = driver.find_elements(By.CSS_SELECTOR, ".card-tabs .tab")
-                name_els = tabs[i].find_elements(By.CSS_SELECTOR, ".lottery-name")
-                name = name_els[0].text if name_els else f"tab-{i + 1}"
-                LOGGER.info(f"点击第 {i + 1} 个 tab: {name}")
-                tabs[i].click()
-                time.sleep(2)
-        except Exception as e:
-            LOGGER.warning(f"未找到 tab 结构，直接从已有请求中提取: {e}")
+        # Handle multiple possible response shapes
+        result_data = data.get("data") or {}
+        lottery_list = (
+            result_data.get("lottery_list")
+            or result_data.get("list")
+            or (result_data if isinstance(result_data, list) else [])
+        )
 
-        target_urls = []
-        for req in driver.requests:
-            if (
-                req.response
-                and "lottery_home_detail" in req.url
-                and req.url not in target_urls
-            ):
-                target_urls.append(req.url)
-
-        driver.quit()
-        LOGGER.info(f"共捕获到 {len(target_urls)} 个 lottery_home_detail 请求")
-
-        if not target_urls:
-            LOGGER.warning("未捕获到 lottery_home_detail 请求")
-            return None, "未在页面网络请求中找到 lottery_home_detail，请确认链接正确"
+        if not lottery_list:
+            LOGGER.warning(f"lottery_list API 未返回分组数据: {data}")
+            return None, "未找到收藏集分组信息，请确认 act_id 是否正确"
 
         params_list = []
-        for url in target_urls:
-            LOGGER.info(f"解析请求 URL: {url}")
-            parsed = urlparse(url)
-            qs = parse_qs(parsed.query)
-            act = qs.get("act_id", [None])[0]
-            lot = qs.get("lottery_id", [None])[0]
-            if act and lot:
-                params_list.append({"act_id": act, "lottery_id": lot})
-                LOGGER.info(f"提取参数: act_id={act}, lottery_id={lot}")
-            else:
-                LOGGER.warning(f"请求 URL 缺少有效参数，跳过: {url}")
+        for lottery in lottery_list:
+            if not isinstance(lottery, dict):
+                continue
+            lot_id = lottery.get("lottery_id") or lottery.get("id")
+            if lot_id:
+                params_list.append({"act_id": str(act_id), "lottery_id": str(lot_id)})
+                LOGGER.info(f"提取参数: act_id={act_id}, lottery_id={lot_id}")
 
         if not params_list:
-            return None, "捕获的请求 URL 中未包含有效的 act_id 或 lottery_id"
+            return None, "返回数据中未包含有效的 lottery_id"
 
         return params_list, None
 
+    except requests.Timeout:
+        LOGGER.error(f"查询 lottery 列表超时: act_id={act_id}")
+        return None, "请求超时，请稍后重试"
+    except requests.RequestException as e:
+        LOGGER.error(f"查询 lottery 列表失败: {e}")
+        return None, "请求 B 站 API 失败，请稍后重试"
     except Exception as e:
-        LOGGER.error(f"通过页面获取参数失败: {e}", exc_info=True)
-        return None, "通过页面获取参数时发生错误，请查看服务端日志了解详情"
+        LOGGER.error(f"处理 lottery 列表失败: {e}", exc_info=True)
+        return None, "查询时发生错误，请查看服务端日志了解详情"
 
 
 # ====== Flask 路由 ======
@@ -236,28 +189,26 @@ def fetch():
 @app.route("/api/get_params")
 def get_params():
     """
-    访问 B 站收藏集页面，从页面网络请求中提取所有 act_id / lottery_id 参数对。
+    根据 act_id 调用 B 站 lottery_list 接口，获取该活动下所有分组的 lottery_id。
     参数:
-      url         — B 站收藏集页面 URL（必填）
-      chrome_path — Chrome 浏览器可执行文件路径（可选，留空则自动检测）
-      driver_path — ChromeDriver 可执行文件路径（可选，留空则自动检测）
+      act_id — 活动 ID（必填）
+    无需 Chrome 或任何浏览器依赖。
     """
-    page_url = request.args.get("url", "").strip()
-    chrome_path = request.args.get("chrome_path", "").strip() or None
-    driver_path = request.args.get("driver_path", "").strip() or None
+    act_id = request.args.get("act_id", "").strip()
 
-    LOGGER.info(
-        f"/api/get_params 收到请求: url={page_url!r}, "
-        f"chrome_path={chrome_path!r}, driver_path={driver_path!r}"
-    )
+    LOGGER.info(f"/api/get_params 收到请求: act_id={act_id!r}")
 
-    if not page_url:
-        LOGGER.warning("/api/get_params 缺少 url 参数")
-        return jsonify({"code": -1, "message": "缺少参数 url"}), 400
+    if not act_id:
+        LOGGER.warning("/api/get_params 缺少 act_id 参数")
+        return jsonify({"code": -1, "message": "缺少参数 act_id"}), 400
 
-    params_list, error = get_lottery_params_from_page(page_url, chrome_path, driver_path)
+    if not act_id.isdigit():
+        LOGGER.warning(f"/api/get_params act_id 格式错误: {act_id!r}")
+        return jsonify({"code": -1, "message": "act_id 必须为数字"}), 400
+
+    params_list, error = get_lottery_params_by_act_id(act_id)
     if error:
-        LOGGER.error(f"获取页面参数失败: {error}")
+        LOGGER.error(f"获取 lottery 列表失败: {error}")
         return jsonify({"code": -1, "message": error}), 500
 
     LOGGER.info(f"成功提取 {len(params_list)} 个参数对: {params_list}")
