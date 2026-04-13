@@ -266,7 +266,7 @@
   <div class="logo">📦</div>
   <div>
     <h1>B 站收藏集下载器</h1>
-    <div class="sub">纯浏览器端运行，无需服务端 · All processing is local</div>
+    <div class="sub">支持本地服务端模式（推荐）及纯浏览器模式</div>
   </div>
 </header>
 
@@ -489,15 +489,24 @@
 
   /* ============================================================
      API
+     When served by the local Flask backend use /api/fetch (no CORS issues).
+     When opened directly as a file:// fall back to the Bilibili API directly.
   ============================================================ */
-  const API = 'https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail';
+  const BILIBILI_API = 'https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail';
+  const USE_BACKEND = window.location.protocol !== 'file:';
 
   async function fetchCollection(act_id, lottery_id) {
-    const url = `${API}?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`;
-    const res = await fetch(url, {
-      headers: { 'Referer': 'https://www.bilibili.com/' },
-      mode: 'cors',
-    });
+    let res;
+    if (USE_BACKEND) {
+      res = await fetch(
+        `/api/fetch?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`
+      );
+    } else {
+      res = await fetch(
+        `${BILIBILI_API}?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`,
+        { headers: { 'Referer': 'https://www.bilibili.com/' }, mode: 'cors' }
+      );
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
@@ -691,8 +700,9 @@
         // (e.g. CORS preflight rejected or no connectivity), not an application error.
         if (err instanceof TypeError && !(err instanceof RangeError)) {
           msg = `网络请求失败，可能是浏览器的跨域（CORS）限制。<br>
-            建议：① 安装浏览器扩展 <b>CORS Unblock</b> 后重试；
-            ② 或用 Chrome 命令行参数 <code>--disable-web-security --user-data-dir=/tmp/nocsec</code> 启动。`;
+            建议：① 使用 <code>python server.py</code> 启动本地服务端后通过 <a href="http://127.0.0.1:5000" target="_blank">http://127.0.0.1:5000</a> 访问（推荐）；
+            ② 安装浏览器扩展 <b>CORS Unblock</b> 后重试；
+            ③ 或用 Chrome 命令行参数 <code>--disable-web-security --user-data-dir=/tmp/nocsec</code> 启动。`;
         }
         addAlert('alert-err', `❌ 获取失败 (act_id=${escHtml(p.act_id)}): ${msg}`);
       }
