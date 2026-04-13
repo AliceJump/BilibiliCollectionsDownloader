@@ -10,9 +10,7 @@
       --pink: #fb7299;
       --pink-dark: #e05c84;
       --pink-light: rgba(251,114,153,.08);
-      --blue: #00a1d6;
       --green: #52c41a;
-      --orange: #fa8c16;
       --bg: #f4f5f7;
       --card: #fff;
       --text: #18191c;
@@ -47,7 +45,7 @@
 
     /* ── Layout ── */
     .wrap {
-      max-width: 980px;
+      max-width: 860px;
       margin: 28px auto;
       padding: 0 18px;
     }
@@ -69,49 +67,31 @@
       gap: 7px;
     }
 
-    /* ── Tabs ── */
-    .tabs {
+    /* ── act_id input row ── */
+    .id-row {
       display: flex;
-      border-bottom: 2px solid var(--border);
-      margin-bottom: 18px;
+      gap: 8px;
+      align-items: center;
     }
-    .tab {
-      padding: 7px 16px;
-      font-size: 14px;
-      color: var(--sub);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      transition: color .15s, border-color .15s;
-      user-select: none;
-    }
-    .tab.active { color: var(--pink); border-bottom-color: var(--pink); font-weight: 600; }
-
-    .panel { display: none; }
-    .panel.active { display: block; }
-
-    /* ── URL textarea ── */
-    .url-area {
-      width: 100%;
-      min-height: 96px;
-      padding: 11px 13px;
+    .id-row input {
+      flex: 1;
+      padding: 10px 13px;
       border: 1.5px solid var(--border);
       border-radius: 8px;
-      font-size: 13px;
-      font-family: "Consolas", "Courier New", monospace;
-      resize: vertical;
+      font-size: 14px;
       color: var(--text);
       transition: border-color .15s;
-      line-height: 1.6;
     }
-    .url-area:focus { outline: none; border-color: var(--pink); }
+    .id-row input:focus { outline: none; border-color: var(--pink); }
     .hint { font-size: 12px; color: var(--sub); margin-top: 6px; }
 
     /* ── QR drop zone ── */
+    .qr-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .qr-label { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
     .qr-zone {
       border: 2px dashed var(--border);
       border-radius: 8px;
-      padding: 28px;
+      padding: 24px;
       text-align: center;
       cursor: pointer;
       position: relative;
@@ -119,7 +99,7 @@
     }
     .qr-zone:hover, .qr-zone.over { border-color: var(--pink); background: var(--pink-light); }
     .qr-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    .qr-zone .icon { font-size: 34px; margin-bottom: 6px; }
+    .qr-zone .icon { font-size: 30px; margin-bottom: 6px; }
     .qr-zone p { font-size: 13px; color: var(--sub); line-height: 1.6; }
 
     .qr-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -142,7 +122,7 @@
     /* ── Options ── */
     .opts-row {
       display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+      margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
     }
     .opts-label { font-size: 13px; font-weight: 600; white-space: nowrap; }
     .chk-grp { display: flex; gap: 14px; flex-wrap: wrap; }
@@ -155,6 +135,7 @@
       padding: 9px 22px; border: none; border-radius: 8px;
       font-size: 13px; font-weight: 600; cursor: pointer;
       transition: background .15s, transform .1s, opacity .15s;
+      white-space: nowrap;
     }
     .btn:active { transform: scale(.97); }
     .btn-primary { background: var(--pink); color: #fff; }
@@ -166,17 +147,6 @@
     .btn-green:hover { background: #389e0d; }
 
     .actions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; flex-wrap: wrap; gap: 8px; }
-
-    /* ── Manual input ── */
-    .manual-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
-    .manual-row input {
-      flex: 1; min-width: 120px; padding: 8px 10px;
-      border: 1.5px solid var(--border); border-radius: 6px;
-      font-size: 13px; color: var(--text);
-      transition: border-color .15s;
-    }
-    .manual-row input:focus { outline: none; border-color: var(--pink); }
-    .manual-row label { font-size: 12px; color: var(--sub); white-space: nowrap; }
 
     /* ── Progress ── */
     .prog-wrap { display: none; }
@@ -193,7 +163,6 @@
     .alert-ok  { background: #f6ffed; border: 1px solid #b7eb8f; color: #135200; }
     .alert-err { background: #fff2f0; border: 1px solid #ffccc7; color: #a8071a; }
     .alert-warn { background: #fffbe6; border: 1px solid #ffe58f; color: #613400; }
-    .alert-info { background: #e6f4ff; border: 1px solid #91caff; color: #003eb3; }
 
     /* ── Results ── */
     .results-wrap { display: none; }
@@ -208,33 +177,25 @@
     .coll-name { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
     .coll-sub { font-size: 12px; color: var(--sub); margin-bottom: 14px; }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+    .dl-list { display: flex; flex-direction: column; gap: 8px; }
 
-    .dl-card {
-      border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden;
-      transition: box-shadow .15s, transform .15s;
+    .dl-item {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border); border-radius: 8px;
       background: var(--card);
     }
-    .dl-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
-
-    .dl-card-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
-    .dl-card-placeholder {
-      width: 100%; aspect-ratio: 1; background: var(--bg);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 34px; color: var(--border);
-    }
-
-    .dl-card-body { padding: 9px; }
-    .dl-card-name {
-      font-size: 12px; font-weight: 600; color: var(--text);
+    .dl-item-name {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      flex: 1; min-width: 0;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      margin-bottom: 7px;
     }
-    .dl-links { display: flex; flex-direction: column; gap: 4px; }
+    .dl-links { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .dl-a {
-      display: block; padding: 4px 8px; border-radius: 4px;
-      font-size: 11px; font-weight: 500; text-decoration: none; text-align: center;
+      display: inline-block; padding: 4px 10px; border-radius: 4px;
+      font-size: 12px; font-weight: 500; text-decoration: none;
       transition: opacity .15s;
     }
     .dl-a:hover { opacity: .8; }
@@ -256,7 +217,6 @@
       header { padding: 14px 16px; }
       .wrap { padding: 0 12px; }
       .card { padding: 18px 16px; }
-      .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     }
   </style>
 </head>
@@ -266,7 +226,7 @@
   <div class="logo">📦</div>
   <div>
     <h1>B 站收藏集下载器</h1>
-    <div class="sub">支持本地服务端模式（推荐）及纯浏览器模式</div>
+    <div class="sub">输入 act_id 或上传二维码图片</div>
   </div>
 </header>
 
@@ -274,51 +234,22 @@
 
   <!-- ─── Input card ─── -->
   <div class="card">
-    <div class="card-title">📥 输入收藏集</div>
+    <div class="card-title">🔍 按 act_id 查询</div>
 
-    <div class="tabs">
-      <div class="tab active" data-tab="url">🔗 粘贴链接</div>
-      <div class="tab" data-tab="qr">📷 上传二维码</div>
-      <div class="tab" data-tab="manual">🔧 手动输入 ID</div>
-      <div class="tab" data-tab="page">🔍 按 act_id 查询</div>
+    <div class="id-row">
+      <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
     </div>
+    <div class="hint">💡 仅需提供 <code>act_id</code>，系统自动查询所有分组。也可直接粘贴含 <code>act_id</code> 的完整链接。</div>
 
-    <!-- URL panel -->
-    <div class="panel active" id="panel-url">
-      <textarea class="url-area" id="url-input"
-        placeholder="粘贴 B 站收藏集分享链接，每行一个&#10;例：https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&amp;lottery_id=12345"></textarea>
-      <div class="hint">💡 链接中须包含 <code>act_id</code> 和 <code>lottery_id</code> 两个参数</div>
-    </div>
-
-    <!-- QR panel -->
-    <div class="panel" id="panel-qr">
+    <!-- QR upload section -->
+    <div class="qr-section">
+      <div class="qr-label">📷 或上传二维码图片</div>
       <div class="qr-zone" id="qr-zone">
         <input type="file" id="qr-input" accept="image/*" multiple />
         <div class="icon">🖼️</div>
-        <p>点击选择或拖放二维码图片<br><small>支持 JPG / PNG，可多选</small></p>
+        <p>点击选择或拖放二维码图片<br><small>支持 JPG / PNG，可多选；识别成功后自动填入 act_id 并查询</small></p>
       </div>
       <div class="qr-thumbs" id="qr-thumbs"></div>
-    </div>
-
-    <!-- Manual panel -->
-    <div class="panel" id="panel-manual">
-      <p class="hint" style="margin-bottom:10px;">若链接不含参数，可在此直接填写 ID（多组请点"＋添加"）</p>
-      <div id="manual-rows">
-        <div class="manual-row">
-          <label>act_id</label>
-          <input type="text" class="m-act" placeholder="例：13688" />
-          <label>lottery_id</label>
-          <input type="text" class="m-lot" placeholder="例：12345" />
-        </div>
-      </div>
-      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="addManualRow()">＋ 添加一行</button>
-    </div>
-
-    <!-- Page URL panel -->
-    <div class="panel" id="panel-page">
-      <textarea class="url-area" id="page-url-input"
-        placeholder="粘贴 B 站收藏集链接或直接填写 act_id，每行一个&#10;例（链接）：https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&#10;例（纯 ID）：13688&#10;&#10;程序将自动调用 B 站接口查询该活动下所有收藏集分组"></textarea>
-      <div class="hint">💡 仅需提供 <code>act_id</code>，系统自动查询所有分组——无需 Chrome 或任何外部组件。</div>
     </div>
 
     <!-- Options -->
@@ -367,22 +298,10 @@
   };
 
   /* ============================================================
-     Tab switching
-  ============================================================ */
-  document.querySelectorAll('.tab').forEach(t => {
-    t.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      document.getElementById('panel-' + t.dataset.tab).classList.add('active');
-    });
-  });
-
-  /* ============================================================
      QR code handling
   ============================================================ */
-  const qrInput = document.getElementById('qr-input');
-  const qrZone  = document.getElementById('qr-zone');
+  const qrInput  = document.getElementById('qr-input');
+  const qrZone   = document.getElementById('qr-zone');
   const qrThumbs = document.getElementById('qr-thumbs');
 
   qrInput.addEventListener('change', e => processQrFiles(e.target.files));
@@ -394,6 +313,18 @@
     qrZone.classList.remove('over');
     processQrFiles(e.dataTransfer.files);
   });
+
+  function extractActId(text) {
+    text = text.trim();
+    // Try as URL first
+    try {
+      const actId = new URL(text).searchParams.get('act_id');
+      if (actId) return actId;
+    } catch (_) {}
+    // Bare number
+    if (/^\d+$/.test(text)) return text;
+    return null;
+  }
 
   function processQrFiles(files) {
     Array.from(files).forEach(file => {
@@ -408,8 +339,10 @@
           const imgData = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
           const code = jsQR(imgData.data, imgData.width, imgData.height);
 
+          const actId = code && code.data ? extractActId(code.data) : null;
+
           const thumb = document.createElement('div');
-          thumb.className = 'qr-thumb ' + (code ? 'ok' : 'fail');
+          thumb.className = 'qr-thumb ' + (actId ? 'ok' : 'fail');
 
           const imgEl = document.createElement('img');
           imgEl.src = ev.target.result;
@@ -417,18 +350,13 @@
 
           const badge = document.createElement('div');
           badge.className = 'qr-badge';
-          badge.textContent = code ? '✓ 识别成功' : '✗ 未识别';
+          badge.textContent = actId ? '✓ act_id=' + actId : (code ? '✗ 无 act_id' : '✗ 未识别');
           thumb.appendChild(badge);
           qrThumbs.appendChild(thumb);
 
-          if (code && code.data) {
-            const ta = document.getElementById('url-input');
-            ta.value = ta.value.trim() ? ta.value.trim() + '\n' + code.data : code.data;
-            // Switch to URL tab to show the extracted link
-            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-            document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
-            document.querySelector('.tab[data-tab="url"]').classList.add('active');
-            document.getElementById('panel-url').classList.add('active');
+          if (actId) {
+            document.getElementById('act-id-input').value = actId;
+            startFetch();
           }
         };
         img.src = ev.target.result;
@@ -438,119 +366,12 @@
   }
 
   /* ============================================================
-     Manual ID rows
-  ============================================================ */
-  function addManualRow() {
-    const row = document.createElement('div');
-    row.className = 'manual-row';
-    row.innerHTML = `
-      <label>act_id</label><input type="text" class="m-act" placeholder="例：13688" />
-      <label>lottery_id</label><input type="text" class="m-lot" placeholder="例：12345" />
-      <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;" onclick="this.parentElement.remove()">✕</button>`;
-    document.getElementById('manual-rows').appendChild(row);
-  }
-
-  /* ============================================================
-     Parse URL → {act_id, lottery_id}
-  ============================================================ */
-  function parseUrl(raw) {
-    try {
-      const url = new URL(raw.trim());
-      const act = url.searchParams.get('act_id');
-      const lot = url.searchParams.get('lottery_id');
-      if (act && lot) {
-        console.log('[parseUrl] 完整参数链接:', raw.trim(), '→ act_id=' + act + ', lottery_id=' + lot);
-        return { act_id: act, lottery_id: lot };
-      }
-    } catch (_) {}
-    console.log('[parseUrl] 无法解析参数:', raw.trim());
-    return null;
-  }
-
-  /* ============================================================
-     Collect all param pairs from all inputs
-  ============================================================ */
-  function collectParams() {
-    const pairs = [];
-    const seen = new Set();
-
-    function add(act, lot) {
-      if (!act || !lot) return;
-      const key = act + '|' + lot;
-      if (!seen.has(key)) { seen.add(key); pairs.push({ act_id: act, lottery_id: lot }); }
-    }
-
-    // URL textarea
-    const lines = document.getElementById('url-input').value.split('\n');
-    console.log('[collectParams] url-input 行数:', lines.length, '内容:', lines);
-    lines.forEach(line => {
-      line = line.trim();
-      if (!line) return;
-      const p = parseUrl(line);
-      if (p) add(p.act_id, p.lottery_id);
-    });
-
-    // Manual rows
-    document.querySelectorAll('#manual-rows .manual-row').forEach(row => {
-      const act = row.querySelector('.m-act').value.trim();
-      const lot = row.querySelector('.m-lot').value.trim();
-      console.log('[collectParams] 手动行: act_id=' + act + ', lottery_id=' + lot);
-      add(act, lot);
-    });
-
-    console.log('[collectParams] 收集到', pairs.length, '个参数对:', pairs);
-    return pairs;
-  }
-
-  /* ============================================================
-     Collect act_ids from the "按 act_id 查询" tab.
-     Accepts full URLs (act_id extracted from params) or bare numbers.
-  ============================================================ */
-  function collectPageUrls() {
-    const actIds = [];
-    const seen = new Set();
-    const lines = document.getElementById('page-url-input').value.split('\n');
-    console.log('[collectPageUrls] page-url-input 行数:', lines.length, '内容:', lines);
-    lines.forEach(line => {
-      line = line.trim();
-      if (!line) return;
-      let actId = null;
-      try {
-        actId = new URL(line).searchParams.get('act_id');
-      } catch (_) {
-        if (/^\d+$/.test(line)) actId = line;
-      }
-      if (actId && !seen.has(actId)) {
-        seen.add(actId);
-        actIds.push(actId);
-      } else if (!actId) {
-        console.warn('[collectPageUrls] 无法提取 act_id，跳过:', line);
-      }
-    });
-    console.log('[collectPageUrls] 收集到', actIds.length, '个 act_id:', actIds);
-    return actIds;
-  }
-
-  /* ============================================================
      API
-     When served by the local Flask backend use /api/fetch (no CORS issues).
-     When opened directly as a file:// fall back to the Bilibili API directly.
   ============================================================ */
-  const BILIBILI_API = 'https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail';
-  const USE_BACKEND = window.location.protocol !== 'file:';
-
   async function fetchCollection(act_id, lottery_id) {
-    let res;
-    if (USE_BACKEND) {
-      res = await fetch(
-        `/api/fetch?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`
-      );
-    } else {
-      res = await fetch(
-        `${BILIBILI_API}?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`,
-        { headers: { 'Referer': 'https://www.bilibili.com/' }, mode: 'cors' }
-      );
-    }
+    const res = await fetch(
+      `/api/fetch?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
@@ -560,17 +381,13 @@
   ============================================================ */
   function parseData(data, opts) {
     const name = data.name || '未知收藏集';
-    const map = new Map();  // card_name → { card_name, card_img, links[] }
+    const map = new Map();  // card_name → { card_name, links[] }
 
-    // updateImg=true: overwrite card_img even if already set (used for collect_infos which
-    // carries the real per-card preview, whereas item_list.card_info.card_img is the
-    // uniform lottery gift-box / wrapper image shared by every card in the lot).
-    function processCard(card, updateImg = false) {
+    function processCard(card) {
       if (!card) return;
       const cn = card.card_name || 'unnamed';
-      if (!map.has(cn)) map.set(cn, { card_name: cn, card_img: card.card_img || null, links: [] });
+      if (!map.has(cn)) map.set(cn, { card_name: cn, links: [] });
       const entry = map.get(cn);
-      if (updateImg && card.card_img) entry.card_img = card.card_img;
 
       if (opts.img && card.card_img)
         entry.links.push({ url: card.card_img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
@@ -587,13 +404,12 @@
     function processCardTypeInfo(cti) {
       if (!cti) return;
       const cn = cti.name || 'unnamed';
+      if (!map.has(cn)) map.set(cn, { card_name: cn, links: [] });
+      const entry = map.get(cn);
+
       const img = cti.overview_image
         || (cti.content && cti.content.animation && cti.content.animation.animation_first_frame)
         || null;
-      if (!map.has(cn)) map.set(cn, { card_name: cn, card_img: img, links: [] });
-      const entry = map.get(cn);
-      if (img) entry.card_img = img;
-
       if (opts.img && img)
         entry.links.push({ url: img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
 
@@ -640,7 +456,7 @@
   function clearAlerts() { document.getElementById('alerts').innerHTML = ''; }
 
   /* ============================================================
-     Render results
+     Render results (no image preview — name + download links only)
   ============================================================ */
   function renderResults(collections) {
     const body = document.getElementById('results-body');
@@ -657,37 +473,21 @@
     for (const coll of collections) {
       const block = document.createElement('div');
       block.className = 'coll-block card';
-
       block.innerHTML = `<div class="coll-name">${escHtml(coll.name)}</div>
         <div class="coll-sub">共 ${coll.cards.length} 个卡牌</div>`;
 
-      const grid = document.createElement('div');
-      grid.className = 'grid';
+      const list = document.createElement('div');
+      list.className = 'dl-list';
 
       for (const card of coll.cards) {
-        const dc = document.createElement('div');
-        dc.className = 'dl-card';
-
-        if (card.card_img) {
-          const img = document.createElement('img');
-          img.className = 'dl-card-img';
-          img.src = card.card_img;
-          img.alt = card.card_name;
-          img.loading = 'lazy';
-          img.onerror = () => img.replaceWith(placeholder());
-          dc.appendChild(img);
-        } else {
-          dc.appendChild(placeholder());
-        }
-
-        const body2 = document.createElement('div');
-        body2.className = 'dl-card-body';
+        const item = document.createElement('div');
+        item.className = 'dl-item';
 
         const nm = document.createElement('div');
-        nm.className = 'dl-card-name';
+        nm.className = 'dl-item-name';
         nm.title = card.card_name;
         nm.textContent = card.card_name;
-        body2.appendChild(nm);
+        item.appendChild(nm);
 
         const links = document.createElement('div');
         links.className = 'dl-links';
@@ -705,24 +505,16 @@
           state.allLinks.push({ url: dl.url, filename: safeName(card.card_name) + '.' + dl.ext });
         }
 
-        body2.appendChild(links);
-        dc.appendChild(body2);
-        grid.appendChild(dc);
+        item.appendChild(links);
+        list.appendChild(item);
       }
 
-      block.appendChild(grid);
+      block.appendChild(list);
       body.appendChild(block);
     }
 
     if (state.allLinks.length > 0)
       document.getElementById('btn-dl-all').style.display = 'inline-flex';
-  }
-
-  function placeholder() {
-    const d = document.createElement('div');
-    d.className = 'dl-card-placeholder';
-    d.textContent = '📦';
-    return d;
   }
 
   function escHtml(s) {
@@ -733,14 +525,13 @@
      Main: start fetch
   ============================================================ */
   async function startFetch() {
-    const params = collectParams();
-    const pageUrls = collectPageUrls();
-    console.log('[startFetch] 直接参数对:', params, 'act_id 列表:', pageUrls);
+    const raw = document.getElementById('act-id-input').value.trim();
+    const actId = extractActId(raw);
 
-    if (!params.length && !pageUrls.length) {
+    if (!actId) {
       clearAlerts();
       document.getElementById('results-wrap').classList.add('on');
-      addAlert('alert-warn', '⚠️ 未找到有效参数。请在"粘贴链接"中输入含 <code>act_id</code> 和 <code>lottery_id</code> 的链接，在"手动输入 ID"中填写，或在"按 act_id 查询"中输入 act_id。');
+      addAlert('alert-warn', '⚠️ 请输入有效的 <code>act_id</code>（纯数字）或含 <code>act_id</code> 参数的完整链接。');
       return;
     }
 
@@ -758,60 +549,46 @@
     document.getElementById('results-body').innerHTML = '';
     document.getElementById('btn-dl-all').style.display = 'none';
 
-    const allParams = [...params];
-
-    // ── 按 act_id 查询模式：先调 /api/get_params 提取所有分组参数 ──
-    if (pageUrls.length) {
-      const seen = new Set(allParams.map(p => p.act_id + '|' + p.lottery_id));
-
-      for (let i = 0; i < pageUrls.length; i++) {
-        const actId = pageUrls[i];
-        setProgress(
-          Math.round(i / (pageUrls.length + allParams.length) * 100),
-          `正在查询分组 (${i + 1}/${pageUrls.length})：act_id=${actId}`
-        );
-        console.log('[startFetch] 调用 /api/get_params: act_id=', actId);
-        try {
-          const qs = new URLSearchParams({ act_id: actId });
-          const res = await fetch(`/api/get_params?${qs}`);
-          const json = await res.json();
-          console.log('[startFetch] /api/get_params 返回:', json);
-          if (json.code !== 0) {
-            addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(String(json.message || json.code))}`);
-          } else {
-            (json.data || []).forEach(p => {
-              const key = p.act_id + '|' + p.lottery_id;
-              if (!seen.has(key)) {
-                seen.add(key);
-                allParams.push(p);
-                console.log('[startFetch] 从分组查询提取到参数:', p);
-              }
-            });
-          }
-        } catch (err) {
-          console.error('[startFetch] /api/get_params 请求异常:', err);
-          addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(err.message || String(err))}`);
-        }
+    // Step 1: query all lottery groups for this act_id
+    setProgress(10, `正在查询分组：act_id=${actId}…`);
+    let allParams = [];
+    try {
+      const res = await fetch(`/api/get_params?act_id=${encodeURIComponent(actId)}`);
+      const json = await res.json();
+      if (json.code !== 0) {
+        addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(String(json.message || json.code))}`);
+        setProgress(100, '完成');
+        setTimeout(hideProgress, 900);
+        btn.disabled = false;
+        return;
       }
-    }
-
-    if (!allParams.length) {
-      addAlert('alert-warn', '⚠️ 未从任何来源提取到有效参数，请检查输入。');
+      allParams = json.data || [];
+    } catch (err) {
+      addAlert('alert-err', `❌ 分组查询失败 (act_id=${escHtml(actId)}): ${escHtml(err.message || String(err))}`);
       setProgress(100, '完成');
       setTimeout(hideProgress, 900);
       btn.disabled = false;
       return;
     }
 
-    console.log('[startFetch] 最终参数列表:', allParams);
+    if (!allParams.length) {
+      addAlert('alert-warn', '⚠️ 未找到收藏集分组，请确认 act_id 是否正确。');
+      setProgress(100, '完成');
+      setTimeout(hideProgress, 900);
+      btn.disabled = false;
+      return;
+    }
+
+    // Step 2: fetch details for each group
     const collections = [];
     for (let i = 0; i < allParams.length; i++) {
       const p = allParams[i];
-      setProgress(Math.round(i / allParams.length * 100), `正在获取 act_id=${p.act_id} lottery_id=${p.lottery_id}…`);
-      console.log('[startFetch] fetchCollection:', p);
+      setProgress(
+        Math.round(10 + 90 * i / allParams.length),
+        `正在获取 act_id=${p.act_id} lottery_id=${p.lottery_id}…`
+      );
       try {
         const json = await fetchCollection(p.act_id, p.lottery_id);
-        console.log('[startFetch] fetchCollection 返回:', json);
         if (json.code !== 0) {
           addAlert('alert-err', `❌ API 错误 (act_id=${escHtml(p.act_id)}): ${escHtml(String(json.message || json.code))}`);
         } else {
@@ -820,17 +597,7 @@
           addAlert('alert-ok', `✅ ${escHtml(result.name)} — ${result.cards.length} 个卡牌`);
         }
       } catch (err) {
-        console.error('[startFetch] fetchCollection 异常:', err);
-        let msg = err.message || String(err);
-        // A TypeError with no HTTP status typically means a network-level failure
-        // (e.g. CORS preflight rejected or no connectivity), not an application error.
-        if (err instanceof TypeError && !(err instanceof RangeError)) {
-          msg = `网络请求失败，可能是浏览器的跨域（CORS）限制。<br>
-            建议：① 使用 <code>python server.py</code> 启动本地服务端后通过 <a href="http://127.0.0.1:5000" target="_blank">http://127.0.0.1:5000</a> 访问（推荐）；
-            ② 安装浏览器扩展 <b>CORS Unblock</b> 后重试；
-            ③ 或用 Chrome 命令行参数 <code>--disable-web-security --user-data-dir=/tmp/nocsec</code> 启动。`;
-        }
-        addAlert('alert-err', `❌ 获取失败 (act_id=${escHtml(p.act_id)}): ${msg}`);
+        addAlert('alert-err', `❌ 获取失败 (act_id=${escHtml(p.act_id)}): ${escHtml(err.message || String(err))}`);
       }
     }
 
@@ -862,14 +629,9 @@
      Clear all
   ============================================================ */
   function clearAll() {
-    document.getElementById('url-input').value = '';
+    document.getElementById('act-id-input').value = '';
     document.getElementById('qr-thumbs').innerHTML = '';
     document.getElementById('qr-input').value = '';
-    document.getElementById('page-url-input').value = '';
-    document.querySelectorAll('#manual-rows .manual-row').forEach((r, i) => {
-      if (i === 0) { r.querySelector('.m-act').value = ''; r.querySelector('.m-lot').value = ''; }
-      else r.remove();
-    });
     document.getElementById('results-body').innerHTML = '';
     document.getElementById('alerts').innerHTML = '';
     document.getElementById('results-wrap').classList.remove('on');
