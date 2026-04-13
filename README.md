@@ -9,6 +9,41 @@
 
 ---
 
+## 🪟 桌面应用模式（打包成 EXE）
+
+### 特点
+
+- **原生窗口**：使用 `pywebview` 嵌套 Flask，界面在系统原生窗口中渲染，不弹浏览器标签页
+- **一键运行**：打包后生成单个 `BiliCollectionDownloader.exe`，无需安装 Python
+- **解决 CORS**：同样通过本地 Flask 代理转发 B 站 API，无跨域限制
+
+### 构建方法
+
+1. 安装依赖：
+
+   ```bash
+   pip install -r requirements.txt
+   pip install pyinstaller "pywebview[edgechromium]"
+   ```
+
+2. 打包：
+
+   ```bash
+   pyinstaller build.spec
+   ```
+
+3. 输出文件：`dist/BiliCollectionDownloader.exe`
+
+> **注意（Windows）**：`pywebview` 的 `edgechromium` 后端依赖系统自带的 Microsoft Edge WebView2 运行时（Windows 10/11 已内置）。如遇启动问题，请到 [微软官网](https://developer.microsoft.com/microsoft-edge/webview2/) 下载安装。
+
+### 直接运行（不打包）
+
+```bash
+python app.py
+```
+
+---
+
 ## 🖥️ 本地服务端模式（推荐）
 
 ### 特点
@@ -136,11 +171,13 @@ dlc/
 
 **源码版本**（用于开发）：
 ```
+app.py                   # 桌面应用入口（pywebview + Flask，可打包为 EXE）
 server.py                # 本地服务端（Flask 代理，推荐）
 index.html               # 网页版前端（也可单独用浏览器打开）
-requirements.txt         # 服务端依赖（flask, requests）
-app.py                   # 命令行版主程序（包含所有功能）
-requirements.txt         # 依赖列表
+requirements.txt         # 运行时依赖（flask, requests, pywebview）
+dev-requirements.txt     # 开发依赖（pyinstaller）
+build.spec               # PyInstaller 打包规格文件
+main.py                  # 命令行版主程序（包含所有功能）
 start.bat               # 启动脚本
 qrcodes/                # 放置二维码图片
 urls.txt                # 链接列表
