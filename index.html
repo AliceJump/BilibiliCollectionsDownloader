@@ -582,11 +582,37 @@
         entry.links.push({ url: card.video_list_download[0], label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
     }
 
+    // processCardTypeInfo handles the collect_infos path whose card_type_info object
+    // uses a different schema from card_info: name/overview_image/content.animation/watermark_animations.
+    function processCardTypeInfo(cti) {
+      if (!cti) return;
+      const cn = cti.name || 'unnamed';
+      const img = cti.overview_image
+        || (cti.content && cti.content.animation && cti.content.animation.animation_first_frame)
+        || null;
+      if (!map.has(cn)) map.set(cn, { card_name: cn, card_img: img, links: [] });
+      const entry = map.get(cn);
+      if (img) entry.card_img = img;
+
+      if (opts.img && img)
+        entry.links.push({ url: img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
+
+      const vid = cti.content && cti.content.animation && cti.content.animation.animation_video_urls
+        && cti.content.animation.animation_video_urls[0] || null;
+      if (opts.vid && vid)
+        entry.links.push({ url: vid, label: '🎬 无水印', cls: 'dl-a-vid', ext: 'mp4' });
+
+      const wm = cti.watermark_animations && cti.watermark_animations[0]
+        && cti.watermark_animations[0].watermark_animation || null;
+      if (opts.wm && wm)
+        entry.links.push({ url: wm, label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
+    }
+
     (data.item_list || []).forEach(item => item && processCard(item.card_info));
 
     const cl = data.collect_list || {};
     (cl.collect_infos || []).forEach(c => {
-      if (c && c.card_item && c.card_item.card_type_info) processCard(c.card_item.card_type_info, true);
+      if (c && c.card_item && c.card_item.card_type_info) processCardTypeInfo(c.card_item.card_type_info);
     });
 
     return { name, cards: [...map.values()] };

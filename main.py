@@ -259,7 +259,41 @@ def extract_card_downloads(card, video_type):
     return video_urls, water_mark_video_urls, image_urls
 
 
-def safe_filename(name: str) -> str:
+def extract_card_type_info_downloads(card, video_type):
+    """Extract downloads from collect_infos[].card_item.card_type_info (new API schema)."""
+    video_urls, water_mark_video_urls, image_urls = [], [], []
+
+    card_name = card.get("name") or "unnamed"
+
+    # 无水印视频
+    if video_type[1]:
+        content = card.get("content") or {}
+        animation = content.get("animation") or {}
+        urls = animation.get("animation_video_urls") or []
+        if urls:
+            video_urls.append((card_name, urls[0]))
+
+    # 带水印视频
+    if video_type[0]:
+        wm_list = card.get("watermark_animations") or []
+        if wm_list and isinstance(wm_list[0], dict):
+            wm_url = wm_list[0].get("watermark_animation")
+            if wm_url:
+                water_mark_video_urls.append((card_name, wm_url))
+
+    # 图片
+    image_url = card.get("overview_image")
+    if not image_url:
+        content = card.get("content") or {}
+        animation = content.get("animation") or {}
+        image_url = animation.get("animation_first_frame")
+    if image_url:
+        image_urls.append((card_name, image_url))
+
+    return video_urls, water_mark_video_urls, image_urls
+
+
+
     """处理文件名，替换非法字符"""
     name = name.replace("·", "_").replace(" ", "_")
     return re.sub(r'[<>:"/\\|?*]', '_', name)
@@ -311,8 +345,8 @@ def get_download_url(act_id, lottery_id, video_type=(True, True)):
                 if not isinstance(card, dict):
                     continue
 
-                # 提取下载链接
-                v, wv, iv = extract_card_downloads(card, video_type)
+                # 提取下载链接（card_type_info 使用新字段结构）
+                v, wv, iv = extract_card_type_info_downloads(card, video_type)
                 video_urls.extend(v)
                 water_mark_video_urls.extend(wv)
                 image_urls.extend(iv)
