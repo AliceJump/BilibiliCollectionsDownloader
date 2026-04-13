@@ -355,7 +355,7 @@
      State
   ============================================================ */
   const state = {
-    allLinks: [],   // { url, filename }
+    allLinks: [],   // { url: string, filename: string }
   };
 
   /* ============================================================
@@ -687,7 +687,9 @@
         }
       } catch (err) {
         let msg = err.message || String(err);
-        if (err instanceof TypeError && msg.includes('fetch')) {
+        // A TypeError with no HTTP status typically means a network-level failure
+        // (e.g. CORS preflight rejected or no connectivity), not an application error.
+        if (err instanceof TypeError && !(err instanceof RangeError)) {
           msg = `网络请求失败，可能是浏览器的跨域（CORS）限制。<br>
             建议：① 安装浏览器扩展 <b>CORS Unblock</b> 后重试；
             ② 或用 Chrome 命令行参数 <code>--disable-web-security --user-data-dir=/tmp/nocsec</code> 启动。`;
