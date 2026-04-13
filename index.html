@@ -239,7 +239,7 @@
     <div class="id-row">
       <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
     </div>
-    <div class="hint">💡 仅需提供 <code>act_id</code>，系统自动查询所有分组。也可直接粘贴含 <code>act_id</code> 的完整链接。</div>
+    <div class="hint">💡 仅需提供 <code>act_id</code>，系统自动查询所有分组。也可直接粘贴含 <code>act_id</code> 的完整链接或 b23.tv 短链接。</div>
 
     <!-- QR upload section -->
     <div class="qr-section">
@@ -314,15 +314,33 @@
     processQrFiles(e.dataTransfer.files);
   });
 
-  function extractActId(text) {
+  /**
+   * Extract act_id from a raw string.
+   * 1. If it's a URL with act_id in the query string, return it directly.
+   * 2. If it's a bare number, return it directly.
+   * 3. Otherwise (e.g. b23.tv short link), ask the backend to follow redirects
+   *    and try extracting act_id from the final URL.
+   */
+  async function extractActId(text) {
     text = text.trim();
-    // Try as URL first
+    // Direct URL with act_id param
     try {
       const actId = new URL(text).searchParams.get('act_id');
       if (actId) return actId;
     } catch (_) {}
     // Bare number
     if (/^\d+$/.test(text)) return text;
+    // HTTP(S) URL without act_id — may be a short link; resolve via backend
+    if (/^https?:\/\//i.test(text)) {
+      try {
+        const res = await fetch(`/api/resolve_url?url=${encodeURIComponent(text)}`);
+        const json = await res.json();
+        if (json.code === 0 && json.url) {
+          const actId = new URL(json.url).searchParams.get('act_id');
+          if (actId) return actId;
+        }
+      } catch (_) {}
+    }
     return null;
   }
 
@@ -331,7 +349,7 @@
       const reader = new FileReader();
       reader.onload = ev => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
           const canvas = document.createElement('canvas');
           canvas.width = img.width;
           canvas.height = img.height;
@@ -339,20 +357,27 @@
           const imgData = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
           const code = jsQR(imgData.data, imgData.width, imgData.height);
 
-          const actId = code && code.data ? extractActId(code.data) : null;
-
+          // Add a "resolving…" placeholder badge while we await
           const thumb = document.createElement('div');
-          thumb.className = 'qr-thumb ' + (actId ? 'ok' : 'fail');
-
+          thumb.className = 'qr-thumb';
           const imgEl = document.createElement('img');
           imgEl.src = ev.target.result;
           thumb.appendChild(imgEl);
-
           const badge = document.createElement('div');
           badge.className = 'qr-badge';
-          badge.textContent = actId ? '✓ act_id=' + actId : (code ? '✗ 无 act_id' : '✗ 未识别');
+          badge.textContent = code ? '⏳ 解析中…' : '✗ 未识别';
           thumb.appendChild(badge);
           qrThumbs.appendChild(thumb);
+
+          if (!code || !code.data) {
+            thumb.classList.add('fail');
+            return;
+          }
+
+          const actId = await extractActId(code.data);
+
+          thumb.classList.add(actId ? 'ok' : 'fail');
+          badge.textContent = actId ? '✓ act_id=' + actId : '✗ 无 act_id';
 
           if (actId) {
             document.getElementById('act-id-input').value = actId;
@@ -526,12 +551,12 @@
   ============================================================ */
   async function startFetch() {
     const raw = document.getElementById('act-id-input').value.trim();
-    const actId = extractActId(raw);
+    const actId = await extractActId(raw);
 
     if (!actId) {
       clearAlerts();
       document.getElementById('results-wrap').classList.add('on');
-      addAlert('alert-warn', '⚠️ 请输入有效的 <code>act_id</code>（纯数字）或含 <code>act_id</code> 参数的完整链接。');
+      addAlert('alert-warn', '⚠️ 请输入有效的 <code>act_id</code>（纯数字）、含 <code>act_id</code> 参数的完整链接，或 b23.tv 短链接。');
       return;
     }
 

@@ -1,6 +1,8 @@
 import os
 import logging
 from datetime import datetime
+from urllib.parse import urlparse
+import requests as req_lib
 from flask import Flask, jsonify, request, send_file
 from bilibili_api import sync, ResponseCodeException, NetworkException
 from bilibili_api.garb import DLC
@@ -185,6 +187,49 @@ def get_params():
 
     LOGGER.info(f"成功提取 {len(params_list)} 个参数对: {params_list}")
     return jsonify({"code": 0, "data": params_list})
+
+
+_RESOLVE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://www.bilibili.com/",
+}
+
+
+@app.route("/api/resolve_url")
+def resolve_url():
+    """
+    跟随 HTTP 重定向，返回最终落地 URL。
+    供前端解析 b23.tv 等短链接，以提取 act_id。
+    参数:
+      url — 待解析的 URL（必填，必须以 http:// 或 https:// 开头）
+    """
+    url = request.args.get("url", "").strip()
+    LOGGER.info(f"/api/resolve_url 收到请求: url={url!r}")
+
+    if not url:
+        return jsonify({"code": -1, "message": "缺少参数 url"}), 400
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return jsonify({"code": -1, "message": "url 必须以 http:// 或 https:// 开头"}), 400
+
+    try:
+        resp = req_lib.head(
+            url,
+            allow_redirects=True,
+            timeout=10,
+            headers=_RESOLVE_HEADERS,
+        )
+        final_url = resp.url
+        LOGGER.info(f"URL 解析成功: {url!r} → {final_url!r}")
+        return jsonify({"code": 0, "url": final_url})
+    except req_lib.exceptions.Timeout:
+        LOGGER.error(f"URL 解析超时: {url!r}")
+        return jsonify({"code": -1, "message": "请求超时，请稍后重试"}), 504
+    except Exception as e:
+        LOGGER.error(f"URL 解析失败: {url!r} | {e}", exc_info=True)
+        return jsonify({"code": -1, "message": "URL 解析失败"}), 502
 
 
 if __name__ == "__main__":

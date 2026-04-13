@@ -1,3 +1,4 @@
 flask>=3.0
 pywebview>=5.0
 bilibili-api-python>=17.0
+requests>=2.28
