@@ -562,11 +562,15 @@
     const name = data.name || '未知收藏集';
     const map = new Map();  // card_name → { card_name, card_img, links[] }
 
-    function processCard(card) {
+    // updateImg=true: overwrite card_img even if already set (used for collect_infos which
+    // carries the real per-card preview, whereas item_list.card_info.card_img is the
+    // uniform lottery gift-box / wrapper image shared by every card in the lot).
+    function processCard(card, updateImg = false) {
       if (!card) return;
       const cn = card.card_name || 'unnamed';
       if (!map.has(cn)) map.set(cn, { card_name: cn, card_img: card.card_img || null, links: [] });
       const entry = map.get(cn);
+      if (updateImg && card.card_img) entry.card_img = card.card_img;
 
       if (opts.img && card.card_img)
         entry.links.push({ url: card.card_img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
@@ -582,7 +586,7 @@
 
     const cl = data.collect_list || {};
     (cl.collect_infos || []).forEach(c => {
-      if (c && c.card_item && c.card_item.card_type_info) processCard(c.card_item.card_type_info);
+      if (c && c.card_item && c.card_item.card_type_info) processCard(c.card_item.card_type_info, true);
     });
 
     return { name, cards: [...map.values()] };
