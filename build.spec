@@ -17,16 +17,20 @@ added_files = [
     ("index.html", "."),
 ]
 
-# Ensure all webview back-end sub-modules are included
+# hidden_imports for seleniumwire / webdriver-manager
 hidden_imports = (
     collect_submodules("webview")
     + collect_submodules("flask")
     + collect_submodules("jinja2")
     + collect_submodules("werkzeug")
+    + collect_submodules("seleniumwire")
+    + collect_submodules("selenium")
     + [
         "requests",
         "engineio",
         "clr_loader",   # needed by pythonnet / edgechromium on Windows
+        "webdriver_manager",
+        "webdriver_manager.chrome",
     ]
 )
 

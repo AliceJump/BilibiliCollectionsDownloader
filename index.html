@@ -280,6 +280,7 @@
       <div class="tab active" data-tab="url">🔗 粘贴链接</div>
       <div class="tab" data-tab="qr">📷 上传二维码</div>
       <div class="tab" data-tab="manual">🔧 手动输入 ID</div>
+      <div class="tab" data-tab="page">🌐 页面链接</div>
     </div>
 
     <!-- URL panel -->
@@ -311,6 +312,20 @@
         </div>
       </div>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="addManualRow()">＋ 添加一行</button>
+    </div>
+
+    <!-- Page URL panel -->
+    <div class="panel" id="panel-page">
+      <textarea class="url-area" id="page-url-input"
+        placeholder="粘贴 B 站收藏集页面链接，每行一个&#10;例：https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&#10;&#10;程序将自动访问页面，从网络请求中提取 act_id 和 lottery_id（需要本地服务端 + Chrome）"></textarea>
+      <div class="hint">💡 参考 <code>main.py</code> 的方式：启动后自动点击页面所有 tab，捕获 <code>lottery_home_detail</code> 请求并提取参数。<br>
+        可选：在下方填写 Chrome / ChromeDriver 路径（留空则自动检测）</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <input type="text" id="chrome-path" style="flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"
+          placeholder="Chrome 路径（可选）例：chrome-win64\\chrome.exe" />
+        <input type="text" id="driver-path" style="flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"
+          placeholder="ChromeDriver 路径（可选）例：chromedriver.exe" />
+      </div>
     </div>
 
     <!-- Options -->
@@ -450,8 +465,12 @@
       const url = new URL(raw.trim());
       const act = url.searchParams.get('act_id');
       const lot = url.searchParams.get('lottery_id');
-      if (act && lot) return { act_id: act, lottery_id: lot };
+      if (act && lot) {
+        console.log('[parseUrl] 完整参数链接:', raw.trim(), '→ act_id=' + act + ', lottery_id=' + lot);
+        return { act_id: act, lottery_id: lot };
+      }
     } catch (_) {}
+    console.log('[parseUrl] 无法解析参数:', raw.trim());
     return null;
   }
 
@@ -470,6 +489,7 @@
 
     // URL textarea
     const lines = document.getElementById('url-input').value.split('\n');
+    console.log('[collectParams] url-input 行数:', lines.length, '内容:', lines);
     lines.forEach(line => {
       line = line.trim();
       if (!line) return;
@@ -481,10 +501,34 @@
     document.querySelectorAll('#manual-rows .manual-row').forEach(row => {
       const act = row.querySelector('.m-act').value.trim();
       const lot = row.querySelector('.m-lot').value.trim();
+      console.log('[collectParams] 手动行: act_id=' + act + ', lottery_id=' + lot);
       add(act, lot);
     });
 
+    console.log('[collectParams] 收集到', pairs.length, '个参数对:', pairs);
     return pairs;
+  }
+
+  /* ============================================================
+     Collect page URLs (tab "页面链接") that need /api/get_params
+  ============================================================ */
+  function collectPageUrls() {
+    const urls = [];
+    const seen = new Set();
+    const lines = document.getElementById('page-url-input').value.split('\n');
+    console.log('[collectPageUrls] page-url-input 行数:', lines.length, '内容:', lines);
+    lines.forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      try {
+        new URL(line); // 验证是否为有效 URL
+        if (!seen.has(line)) { seen.add(line); urls.push(line); }
+      } catch (_) {
+        console.warn('[collectPageUrls] 无效 URL，跳过:', line);
+      }
+    });
+    console.log('[collectPageUrls] 收集到', urls.length, '个页面链接:', urls);
+    return urls;
   }
 
   /* ============================================================
@@ -660,10 +704,13 @@
   ============================================================ */
   async function startFetch() {
     const params = collectParams();
-    if (!params.length) {
+    const pageUrls = collectPageUrls();
+    console.log('[startFetch] 直接参数对:', params, '页面链接:', pageUrls);
+
+    if (!params.length && !pageUrls.length) {
       clearAlerts();
       document.getElementById('results-wrap').classList.add('on');
-      addAlert('alert-warn', '⚠️ 未找到有效参数。请在"粘贴链接"中输入含 <code>act_id</code> 和 <code>lottery_id</code> 的链接，或在"手动输入 ID"中填写。');
+      addAlert('alert-warn', '⚠️ 未找到有效参数。请在"粘贴链接"中输入含 <code>act_id</code> 和 <code>lottery_id</code> 的链接，在"手动输入 ID"中填写，或在"页面链接"中输入收藏集页面 URL。');
       return;
     }
 
@@ -681,12 +728,64 @@
     document.getElementById('results-body').innerHTML = '';
     document.getElementById('btn-dl-all').style.display = 'none';
 
+    const allParams = [...params];
+
+    // ── 页面链接模式：先调 /api/get_params 提取参数 ──
+    if (pageUrls.length) {
+      const chromePath = document.getElementById('chrome-path').value.trim();
+      const driverPath = document.getElementById('driver-path').value.trim();
+      const seen = new Set(allParams.map(p => p.act_id + '|' + p.lottery_id));
+
+      for (let i = 0; i < pageUrls.length; i++) {
+        const pageUrl = pageUrls[i];
+        setProgress(
+          Math.round(i / (pageUrls.length + allParams.length) * 100),
+          `正在访问页面 (${i + 1}/${pageUrls.length})：${pageUrl}`
+        );
+        console.log('[startFetch] 调用 /api/get_params:', pageUrl);
+        try {
+          const qs = new URLSearchParams({ url: pageUrl });
+          if (chromePath) qs.set('chrome_path', chromePath);
+          if (driverPath) qs.set('driver_path', driverPath);
+          const res = await fetch(`/api/get_params?${qs}`);
+          const json = await res.json();
+          console.log('[startFetch] /api/get_params 返回:', json);
+          if (json.code !== 0) {
+            addAlert('alert-err', `❌ 页面参数提取失败 (${escHtml(pageUrl)}): ${escHtml(String(json.message || json.code))}`);
+          } else {
+            (json.data || []).forEach(p => {
+              const key = p.act_id + '|' + p.lottery_id;
+              if (!seen.has(key)) {
+                seen.add(key);
+                allParams.push(p);
+                console.log('[startFetch] 从页面提取到参数:', p);
+              }
+            });
+          }
+        } catch (err) {
+          console.error('[startFetch] /api/get_params 请求异常:', err);
+          addAlert('alert-err', `❌ 页面访问失败 (${escHtml(pageUrl)}): ${escHtml(err.message || String(err))}`);
+        }
+      }
+    }
+
+    if (!allParams.length) {
+      addAlert('alert-warn', '⚠️ 未从任何来源提取到有效参数，请检查输入。');
+      setProgress(100, '完成');
+      setTimeout(hideProgress, 900);
+      btn.disabled = false;
+      return;
+    }
+
+    console.log('[startFetch] 最终参数列表:', allParams);
     const collections = [];
-    for (let i = 0; i < params.length; i++) {
-      const p = params[i];
-      setProgress(Math.round(i / params.length * 100), `正在获取 act_id=${p.act_id} lottery_id=${p.lottery_id}…`);
+    for (let i = 0; i < allParams.length; i++) {
+      const p = allParams[i];
+      setProgress(Math.round(i / allParams.length * 100), `正在获取 act_id=${p.act_id} lottery_id=${p.lottery_id}…`);
+      console.log('[startFetch] fetchCollection:', p);
       try {
         const json = await fetchCollection(p.act_id, p.lottery_id);
+        console.log('[startFetch] fetchCollection 返回:', json);
         if (json.code !== 0) {
           addAlert('alert-err', `❌ API 错误 (act_id=${escHtml(p.act_id)}): ${escHtml(String(json.message || json.code))}`);
         } else {
@@ -695,6 +794,7 @@
           addAlert('alert-ok', `✅ ${escHtml(result.name)} — ${result.cards.length} 个卡牌`);
         }
       } catch (err) {
+        console.error('[startFetch] fetchCollection 异常:', err);
         let msg = err.message || String(err);
         // A TypeError with no HTTP status typically means a network-level failure
         // (e.g. CORS preflight rejected or no connectivity), not an application error.
@@ -739,6 +839,9 @@
     document.getElementById('url-input').value = '';
     document.getElementById('qr-thumbs').innerHTML = '';
     document.getElementById('qr-input').value = '';
+    document.getElementById('page-url-input').value = '';
+    document.getElementById('chrome-path').value = '';
+    document.getElementById('driver-path').value = '';
     document.querySelectorAll('#manual-rows .manual-row').forEach((r, i) => {
       if (i === 0) { r.querySelector('.m-act').value = ''; r.querySelector('.m-lot').value = ''; }
       else r.remove();

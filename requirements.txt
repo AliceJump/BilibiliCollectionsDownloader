@@ -1,3 +1,5 @@
 flask>=3.0
 requests>=2.32
 pywebview>=5.0
+selenium-wire>=5.0
+webdriver-manager>=4.0
