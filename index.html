@@ -342,7 +342,7 @@
       <div class="chk-grp">
         <label class="chk-label"><input type="checkbox" id="opt-img" checked /> 🖼️ 图片</label>
         <label class="chk-label"><input type="checkbox" id="opt-vid" checked /> 🎬 无水印视频</label>
-        <label class="chk-label"><input type="checkbox" id="opt-wm" />         💧 带水印视频</label>
+        <label class="chk-label"><input type="checkbox" id="opt-wm" checked />         💧 带水印视频</label>
       </div>
     </div>
 
@@ -669,8 +669,16 @@
         item.appendChild(preview);
 
         // 仅统计allLinks，不渲染底部按钮
+
         for (const dl of card.links) {
-          state.allLinks.push({ url: dl.url, filename: safeName(card.card_name) + '.' + dl.ext });
+
+          // 🚫 不加入图片
+          if (dl.cls === 'dl-a-img') continue;
+
+          state.allLinks.push({
+            url: dl.url,
+            filename: safeName(card.card_name) + '.' + dl.ext
+          });
         }
 
         list.appendChild(item);
@@ -746,8 +754,10 @@
       return;
     }
 
-    // Step 2: fetch details for each group
-    const collections = [];
+
+    // collections 提升为全局变量，累加所有查询结果
+    if (!window._allCollections) window._allCollections = [];
+    const collections = window._allCollections;
     for (let i = 0; i < allParams.length; i++) {
       const p = allParams[i];
       setProgress(

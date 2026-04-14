@@ -415,7 +415,9 @@ def load_url(page_url):
         for water_name, water_url in water_mark_video_urls:
             downloader.download("watermark_video", whole_name, water_name, water_url, "mp4")
         for img_name, img_url in image_urls:
+            LOGGER.info(f"准备下载图片：活动={whole_name}，卡牌={img_name}，图片链接={img_url}")
             downloader.download("img", whole_name, img_name, img_url, "png")
+            LOGGER.info(f"图片下载调用完成：活动={whole_name}，卡牌={img_name}")
         downloader.err_list_save()
         deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "video"))
         deduplicate_videos_by_hash(os.path.join(downloader.base_dir, whole_name, "watermark_video"))
