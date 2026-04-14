@@ -200,32 +200,35 @@
       overflow: hidden;
     }
     .dl-item-top {
-      padding: 12px 14px 0 14px;
+      padding: 4px 6px 0 6px;
       border-bottom: 1px solid #f0f0f0;
       background: #fafbfc;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 2px;
     }
     .dl-item-name {
-      font-size: 15px; font-weight: 700; color: var(--text);
-      margin-bottom: 2px;
+      font-size: 12px; font-weight: 600; color: var(--text);
+      margin-bottom: 0;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      line-height: 1.2;
     }
     .dl-tabs {
-      display: flex; gap: 8px; margin-bottom: 0;
+      display: flex; gap: 4px; margin-bottom: 0;
     }
     .dl-tab {
-      padding: 3px 10px;
-      border-radius: 6px 6px 0 0;
+      padding: 1px 7px;
+      border-radius: 5px 5px 0 0;
       background: #f4f5f7;
       color: #888;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
       border: 1px solid #e3e5e7;
       border-bottom: none;
       transition: background .15s, color .15s;
+      height: 20px;
+      line-height: 18px;
     }
     .dl-tab.active {
       background: #fff;
@@ -342,7 +345,7 @@
   <div class="results-wrap" id="results-wrap">
     <div class="result-hdr">
       <div class="card-title" style="margin:0">📋 下载结果</div>
-      <button class="btn btn-green" id="btn-dl-all" style="display:none" onclick="downloadAll()">⬇️ 全部打开下载链接</button>
+      <button class="btn btn-green" id="btn-dl-all" style="display:none" onclick="downloadAll()">⬇️ 下载全部</button>
     </div>
     <div id="alerts"></div>
     <div id="results-body"></div>
@@ -478,13 +481,13 @@
       const entry = map.get(cn);
 
       if (opts.img && card.card_img)
-        entry.links.push({ url: card.card_img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
+        entry.links.push({ url: card.card_img, label: '🖼️', cls: 'dl-a-img', ext: 'png' });
 
       if (opts.vid && card.video_list && card.video_list[0])
-        entry.links.push({ url: card.video_list[0], label: '🎬 无水印', cls: 'dl-a-vid', ext: 'mp4' });
+        entry.links.push({ url: card.video_list[0], label: '🎬', cls: 'dl-a-vid', ext: 'mp4' });
 
       if (opts.wm && card.video_list_download && card.video_list_download[0])
-        entry.links.push({ url: card.video_list_download[0], label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
+        entry.links.push({ url: card.video_list_download[0], label: '💧', cls: 'dl-a-wm', ext: 'mp4' });
     }
 
     // processCardTypeInfo handles the collect_infos path whose card_type_info object
@@ -499,17 +502,17 @@
         || (cti.content && cti.content.animation && cti.content.animation.animation_first_frame)
         || null;
       if (opts.img && img)
-        entry.links.push({ url: img, label: '🖼️ 图片', cls: 'dl-a-img', ext: 'png' });
+        entry.links.push({ url: img, label: '🖼️', cls: 'dl-a-img', ext: 'png' });
 
       const vid = cti.content && cti.content.animation && cti.content.animation.animation_video_urls
         && cti.content.animation.animation_video_urls[0] || null;
       if (opts.vid && vid)
-        entry.links.push({ url: vid, label: '🎬 无水印', cls: 'dl-a-vid', ext: 'mp4' });
+        entry.links.push({ url: vid, label: '🎬', cls: 'dl-a-vid', ext: 'mp4' });
 
       const wm = cti.watermark_animations && cti.watermark_animations[0]
         && cti.watermark_animations[0].watermark_animation || null;
       if (opts.wm && wm)
-        entry.links.push({ url: wm, label: '💧 带水印', cls: 'dl-a-wm', ext: 'mp4' });
+        entry.links.push({ url: wm, label: '💧', cls: 'dl-a-wm', ext: 'mp4' });
     }
 
     (data.item_list || []).forEach(item => item && processCard(item.card_info));
@@ -592,7 +595,7 @@
           if (dl.cls === 'dl-a-wm' && !types.includes('wm')) types.push('wm');
         }
         // tab标签
-        const tabNames = { img: '🖼️ 图片', vid: '🎬 无水印', wm: '💧 带水印' };
+        const tabNames = { img: '🖼️', vid: '🎬', wm: '💧' };
         let activeType = types[0] || 'img';
         types.forEach(type => {
           const tab = document.createElement('div');
@@ -643,21 +646,10 @@
         renderPreview();
         item.appendChild(preview);
 
-        // 下载链接区
-        const links = document.createElement('div');
-        links.className = 'dl-links';
+        // 仅统计allLinks，不渲染底部按钮
         for (const dl of card.links) {
-          const a = document.createElement('a');
-          a.className = 'dl-a ' + dl.cls;
-          a.href = dl.url;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.textContent = dl.label;
-          a.download = safeName(card.card_name) + '.' + dl.ext;
-          links.appendChild(a);
           state.allLinks.push({ url: dl.url, filename: safeName(card.card_name) + '.' + dl.ext });
         }
-        item.appendChild(links);
 
         list.appendChild(item);
       }
@@ -763,19 +755,29 @@
   /* ============================================================
      Download all (open links sequentially)
   ============================================================ */
+  // 批量下载所有资源（图片/视频）
   function downloadAll() {
-    state.allLinks.forEach((link, i) => {
+    if (!state.allLinks.length) return;
+    let delay = 0;
+    for (const link of state.allLinks) {
       setTimeout(() => {
-        const a = document.createElement('a');
-        a.href = link.url;
-        a.download = link.filename;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }, i * 350);
-    });
+        fetch(link.url, {mode: 'cors'})
+          .then(resp => resp.blob())
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = link.filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }, 100);
+          });
+      }, delay);
+      delay += 350; // 避免浏览器拦截
+    }
   }
 
   /* ============================================================
