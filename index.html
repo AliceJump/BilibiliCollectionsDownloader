@@ -237,7 +237,6 @@
       border-bottom: 1.5px solid #fff;
     }
     .dl-preview {
-      position: relative;
       width: 100%;
       aspect-ratio: 2 / 3;
       background: #fff;
@@ -245,20 +244,33 @@
       align-items: center;
       justify-content: center;
       padding: 0;
+      border-radius: 7px;
+      border: 1px solid #eee;
+      overflow: hidden;
     }
-    .dl-preview img, .dl-preview video {
+    .dl-preview img {
       max-width: 100%;
       max-height: 100%;
       width: auto;
       height: auto;
       object-fit: contain;
-      border-radius: 7px;
-      border: 1px solid #eee;
       background: #f8f8f8;
       display: block;
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 0;
+      border: none;
+      position: static;
       margin: auto;
+    }
+    .dl-preview video {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      background: #f8f8f8;
+      display: block;
+      border-radius: 0;
+      border: none;
     }
     .dl-links {
       display: flex; gap: 6px; flex-wrap: wrap;
@@ -623,6 +635,7 @@
         preview.className = 'dl-preview';
         function renderPreview() {
           preview.innerHTML = '';
+          let hasContent = false;
           for (const dl of card.links) {
             if (activeType === 'img' && dl.cls === 'dl-a-img') {
               const img = document.createElement('img');
@@ -631,21 +644,24 @@
               img.loading = 'lazy';
               img.referrerPolicy = 'no-referrer';
               preview.appendChild(img);
+              hasContent = true;
             } else if (activeType === 'vid' && dl.cls === 'dl-a-vid') {
               const video = document.createElement('video');
               video.src = dl.url;
               video.controls = true;
               video.preload = 'none';
               preview.appendChild(video);
+              hasContent = true;
             } else if (activeType === 'wm' && dl.cls === 'dl-a-wm') {
               const video = document.createElement('video');
               video.src = dl.url;
               video.controls = true;
               video.preload = 'none';
               preview.appendChild(video);
+              hasContent = true;
             }
           }
-          if (!preview.childNodes.length) {
+          if (!hasContent) {
             preview.innerHTML = '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
           }
         }
