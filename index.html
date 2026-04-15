@@ -363,7 +363,14 @@
   <div class="results-wrap" id="results-wrap">
     <div class="result-hdr">
       <div class="card-title" style="margin:0">📋 下载结果</div>
-      <button class="btn btn-green" id="btn-dl-all" style="display:none" onclick="downloadAll()">⬇️ 下载全部</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="dl-type-chks" style="display:none;gap:8px;">
+          <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
+          <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
+          <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
+        </div>
+        <button class="btn btn-green" id="btn-dl-all" style="display:none" onclick="downloadAll()">⬇️ 下载全部</button>
+      </div>
     </div>
     <div id="alerts"></div>
     <div id="results-body"></div>
@@ -670,14 +677,18 @@
 
         // 仅统计allLinks，不渲染底部按钮
 
+
         for (const dl of card.links) {
-
-          // 🚫 不加入图片
-          if (dl.cls === 'dl-a-img') continue;
-
+          let filename = safeName(card.card_name);
+          // 如果是带水印视频，文件名结尾加“水印”
+          if (dl.cls === 'dl-a-wm') {
+            filename += '-水印';
+          }
+          filename += '.' + dl.ext;
           state.allLinks.push({
             url: dl.url,
-            filename: safeName(card.card_name) + '.' + dl.ext
+            filename: filename,
+            type: dl.cls // 标记类型
           });
         }
 
@@ -688,8 +699,17 @@
       body.appendChild(block);
     }
 
-    if (state.allLinks.length > 0)
+    if (state.allLinks.length > 0) {
       document.getElementById('btn-dl-all').style.display = 'inline-flex';
+      document.getElementById('dl-type-chks').style.display = 'flex';
+      // 默认与上方选项同步
+      document.getElementById('dl-chk-img').checked = document.getElementById('opt-img').checked;
+      document.getElementById('dl-chk-vid').checked = document.getElementById('opt-vid').checked;
+      document.getElementById('dl-chk-wm').checked  = document.getElementById('opt-wm').checked;
+    }
+    else {
+      document.getElementById('dl-type-chks').style.display = 'none';
+    }
   }
 
   function escHtml(s) {
@@ -790,11 +810,34 @@
   // 批量下载所有资源（图片/视频）
   function downloadAll() {
     if (!state.allLinks.length) return;
+    // 读取复选框状态
+    const chkImg = document.getElementById('dl-chk-img').checked;
+    const chkVid = document.getElementById('dl-chk-vid').checked;
+    const chkWm  = document.getElementById('dl-chk-wm').checked;
+    // 过滤类型
+    const typeMap = {
+      'dl-a-img': chkImg,
+      'dl-a-vid': chkVid,
+      'dl-a-wm': chkWm
+    };
+    const links = state.allLinks.filter(link => typeMap[link.type]);
+    if (!links.length) {
+      alert('请至少选择一种资源类型');
+      return;
+    }
     let delay = 0;
-    for (const link of state.allLinks) {
+    for (const link of links) {
       setTimeout(() => {
-        fetch(link.url, {mode: 'cors'})
-          .then(resp => resp.blob())
+        let fetchUrl = link.url;
+        // 仅图片通过后端代理
+        if (link.type === 'dl-a-img') {
+          fetchUrl = `/api/proxy_img?url=${encodeURIComponent(link.url)}`;
+        }
+        fetch(fetchUrl)
+          .then(resp => {
+            if (!resp.ok) throw new Error('下载失败');
+            return resp.blob();
+          })
           .then(blob => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -806,6 +849,9 @@
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
             }, 100);
+          })
+          .catch(err => {
+            alert('下载失败: ' + link.filename + '\n' + err);
           });
       }, delay);
       delay += 350; // 避免浏览器拦截
