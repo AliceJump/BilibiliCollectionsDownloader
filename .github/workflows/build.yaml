@@ -67,10 +67,13 @@ jobs:
           Expand-Archive $embedZipPath -DestinationPath $embedDir -Force
 
           $versionBits = $embedVersion.Split(".")
+          if ($versionBits.Length -lt 2) {
+            throw "Unexpected PYTHON_VERSION format: $embedVersion"
+          }
           $pthFileName = "python{0}{1}._pth" -f $versionBits[0], $versionBits[1]
           $pthFile = Join-Path $embedDir $pthFileName
           $pth = Get-Content $pthFile
-          $pth = $pth -replace '^#import site$', 'import site'
+          $pth = $pth -replace '^\s*#\s*import site\s*$', 'import site'
           Set-Content -Path $pthFile -Value $pth -Encoding ascii
 
           $getPipPath = Join-Path $env:RUNNER_TEMP "get-pip.py"
