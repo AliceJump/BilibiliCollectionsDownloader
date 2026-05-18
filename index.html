@@ -1270,7 +1270,7 @@
 
           function withSuffix(filename, index) {
             const dotIndex = filename.lastIndexOf(".");
-            if (dotIndex !== -1) {
+            if (dotIndex > 0) {
               const name = filename.slice(0, dotIndex);
               const ext = filename.slice(dotIndex);
               return `${name}(${index})${ext}`;
@@ -1278,10 +1278,9 @@
             return `${filename}(${index})`;
           }
 
-          const collectionCount = new Set(
-            links.map((link) => link.collectionFolder || "未知合集"),
-          ).size;
-          const hasMultipleCollections = collectionCount > 1;
+          const hasMultipleCollections =
+            Array.isArray(window._allCollections) &&
+            window._allCollections.length > 1;
 
           const usedZipPaths = new Set();
           for (const link of links) {
