@@ -66,7 +66,9 @@ jobs:
           Invoke-WebRequest "https://www.python.org/ftp/python/$embedVersion/$embedZip" -OutFile $embedZipPath
           Expand-Archive $embedZipPath -DestinationPath $embedDir -Force
 
-          $pthFile = Join-Path $embedDir "python312._pth"
+          $versionBits = $embedVersion.Split(".")
+          $pthFileName = "python{0}{1}._pth" -f $versionBits[0], $versionBits[1]
+          $pthFile = Join-Path $embedDir $pthFileName
           $pth = Get-Content $pthFile
           $pth = $pth -replace '^#import site$', 'import site'
           Set-Content -Path $pthFile -Value $pth -Encoding ascii

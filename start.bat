@@ -27,10 +27,12 @@ echo.
 echo [1] 桌面窗口模式
 echo [2] 命令行模式（--cli）
 set /p APP_MODE=请选择 App 参数: 
-if not "%APP_MODE%"=="1" if not "%APP_MODE%"=="2" (
-  echo 输入无效，请重试。
-  goto APP
-)
+if "%APP_MODE%"=="1" goto APP_START
+if "%APP_MODE%"=="2" goto APP_START
+echo 输入无效，请重试。
+goto APP
+
+:APP_START
 
 if exist "%EXE_PATH%" (
   if "%APP_MODE%"=="2" (
