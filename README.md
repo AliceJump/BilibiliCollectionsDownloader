@@ -115,7 +115,7 @@ https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&lottery_id=12345
 
 ### 最简单的方式：使用便携版Python包（推荐）
 
-从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载 `BiliCollectionDownloader.7z`：
+从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载便携包 `BilibiliCollectionsDownloader-portable-windows.zip`：
 
 1. **解压文件**
 2. **放置输入**：
@@ -130,7 +130,7 @@ https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&lottery_id=12345
 
 ### 从源码运行
 
-需要 Python 3.13.3：
+需要 Python 3.12.7：
 
 #### 1. 安装依赖
 
