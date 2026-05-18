@@ -1047,6 +1047,7 @@
                 url: dl.url,
                 filename: filename,
                 type: dl.cls, // 标记类型
+                collectionFolder: safeName(coll.name || "未知合集"),
               });
             }
 
@@ -1237,7 +1238,12 @@
               normalizedUrl = link.url.split('?')[0];
             }
 
-            const key = link.type + "|" + normalizedUrl;
+            const key =
+              (link.collectionFolder || "未知合集") +
+              "|" +
+              link.type +
+              "|" +
+              normalizedUrl;
 
             if (seen.has(key)) {
               return false;
@@ -1254,28 +1260,47 @@
           }
 
           // =========================
-          // 文件名冲突处理
+          // ZIP 路径（多合集分大文件夹，内部按类型分类）
           // =========================
+          const typeFolderMap = {
+            "dl-a-img": "img",
+            "dl-a-vid": "video",
+            "dl-a-wm": "watermark_video",
+          };
 
-          const filenameCount = new Map();
-
-          for (const link of links) {
-            const count = filenameCount.get(link.filename) || 0;
-
-            if (count > 0) {
-              const dotIndex = link.filename.lastIndexOf(".");
-
-              if (dotIndex !== -1) {
-                const name = link.filename.slice(0, dotIndex);
-                const ext = link.filename.slice(dotIndex);
-
-                link.filename = `${name}(${count})${ext}`;
-              } else {
-                link.filename = `${link.filename}(${count})`;
-              }
+          function withSuffix(filename, index) {
+            const dotIndex = filename.lastIndexOf(".");
+            if (dotIndex !== -1) {
+              const name = filename.slice(0, dotIndex);
+              const ext = filename.slice(dotIndex);
+              return `${name}(${index})${ext}`;
             }
+            return `${filename}(${index})`;
+          }
 
-            filenameCount.set(link.filename, count + 1);
+          const collectionCount = new Set(
+            links.map((link) => link.collectionFolder || "未知合集"),
+          ).size;
+          const hasMultipleCollections = collectionCount > 1;
+
+          const usedZipPaths = new Set();
+          for (const link of links) {
+            const baseParts = [];
+            if (hasMultipleCollections) {
+              baseParts.push(link.collectionFolder || "未知合集");
+            }
+            baseParts.push(typeFolderMap[link.type] || "other");
+
+            let index = 0;
+            let fileName = link.filename;
+            let zipPath = `${baseParts.join("/")}/${fileName}`;
+            while (usedZipPaths.has(zipPath)) {
+              index += 1;
+              fileName = withSuffix(link.filename, index);
+              zipPath = `${baseParts.join("/")}/${fileName}`;
+            }
+            usedZipPaths.add(zipPath);
+            link.zipPath = zipPath;
           }
 
           // =========================
@@ -1319,7 +1344,7 @@
 
                 const blob = await resp.blob();
 
-                zip.file(link.filename, blob);
+                zip.file(link.zipPath || link.filename, blob);
 
                 done++;
                 
