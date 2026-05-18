@@ -77,8 +77,15 @@ jobs:
           & $pythonExe -m pip install --upgrade pip
           & $pythonExe -m pip install -r requirements.txt
 
+          $requiredFiles = @("run_web.py", "server.py", "index.html", "requirements.txt", "README.md", "start.bat")
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path $file)) {
+              throw "Required file is missing: $file"
+            }
+          }
+
           Copy-Item "${{ env.APP_EXE }}" $portableDir -Force
-          Copy-Item run_web.py,server.py,index.html,requirements.txt,README.md,start.bat $portableDir -Force
+          Copy-Item $requiredFiles -Destination $portableDir -Force
 
           $portableZip = Join-Path $artifactDir "BilibiliCollectionsDownloader-portable-windows.zip"
           if (Test-Path $portableZip) {
@@ -108,7 +115,7 @@ jobs:
           } elseif ("${{ inputs.release_tag }}" -ne "") {
             $tag = "${{ inputs.release_tag }}"
           } else {
-            throw "create_release=true 时必须填写 release_tag"
+            throw "release_tag is required when create_release=true"
           }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 

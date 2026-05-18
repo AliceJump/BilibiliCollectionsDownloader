@@ -21,24 +21,30 @@ echo 输入无效，请重试。
 goto MENU
 
 :APP
-set /p APP_ARGS=请输入 App 启动参数（可留空）: 
+echo.
+echo [1] 桌面窗口模式
+echo [2] 命令行模式（--cli）
+set /p APP_MODE=请选择 App 参数: 
+
+set "APP_FLAG="
+if "%APP_MODE%"=="2" set "APP_FLAG=--cli"
+
 if exist "%ROOT%BiliCollectionDownloader.exe" (
-  "%ROOT%BiliCollectionDownloader.exe" %APP_ARGS%
+  "%ROOT%BiliCollectionDownloader.exe"
   goto END
 )
 if exist "%ROOT%python\python.exe" (
-  "%ROOT%python\python.exe" "%ROOT%app.py" %APP_ARGS%
+  "%ROOT%python\python.exe" "%ROOT%app.py" %APP_FLAG%
   goto END
 )
 echo 未找到 BiliCollectionDownloader.exe 或嵌入式 Python 环境。
 goto END
 
 :WEB
-set /p WEB_ARGS=请输入 Web 启动参数（可留空）: 
 if exist "%ROOT%python\python.exe" (
-  "%ROOT%python\python.exe" "%ROOT%run_web.py" %WEB_ARGS%
+  "%ROOT%python\python.exe" "%ROOT%run_web.py"
 ) else (
-  python "%ROOT%run_web.py" %WEB_ARGS%
+  python "%ROOT%run_web.py"
 )
 goto END
 
