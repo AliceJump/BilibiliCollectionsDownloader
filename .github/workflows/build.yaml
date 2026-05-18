@@ -119,7 +119,7 @@ jobs:
           } elseif ("${{ inputs.release_tag }}" -ne "") {
             $tag = "${{ inputs.release_tag }}"
           } else {
-            throw "release_tag is required when create_release=true"
+            throw "Release creation requires a tag. Push a tag or provide release_tag."
           }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 

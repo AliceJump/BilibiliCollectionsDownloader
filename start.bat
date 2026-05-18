@@ -27,6 +27,10 @@ echo.
 echo [1] 桌面窗口模式
 echo [2] 命令行模式（--cli）
 set /p APP_MODE=请选择 App 参数: 
+if not "%APP_MODE%"=="1" if not "%APP_MODE%"=="2" (
+  echo 输入无效，请重试。
+  goto APP
+)
 
 if exist "%EXE_PATH%" (
   if "%APP_MODE%"=="2" (
@@ -51,6 +55,11 @@ goto END
 if exist "%ROOT%python\python.exe" (
   "%ROOT%python\python.exe" "%ROOT%run_web.py"
 ) else (
+  where python >nul 2>nul
+  if errorlevel 1 (
+    echo 未找到可用的 Python 解释器（嵌入式或系统 Python）。
+    goto END
+  )
   python "%ROOT%run_web.py"
 )
 goto END
