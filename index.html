@@ -1228,7 +1228,16 @@
               return false;
             }
 
-            const key = link.type + "|" + link.url;
+            let normalizedUrl = link.url;
+
+            if (
+              link.type === 'dl-a-vid' ||
+              link.type === 'dl-a-wm'
+            ) {
+              normalizedUrl = link.url.split('?')[0];
+            }
+
+            const key = link.type + "|" + normalizedUrl;
 
             if (seen.has(key)) {
               return false;
@@ -1292,6 +1301,9 @@
               const link = links[current];
 
               try {
+                setZipProgress(
+                  `正在下载 ${done}/${links.length}：${link.filename}`,
+                );
                 let fetchUrl = link.url;
 
                 // 图片走代理
@@ -1310,11 +1322,7 @@
                 zip.file(link.filename, blob);
 
                 done++;
-
-                setZipProgress(
-                  `正在下载 ${done}/${links.length}：${link.filename}`,
-                );
-
+                
                 console.log(`已添加 ${done}/${links.length}: ${link.filename}`);
               } catch (err) {
                 console.error("下载失败:", link.filename, err);
