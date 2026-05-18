@@ -26,15 +26,20 @@ echo [1] 桌面窗口模式
 echo [2] 命令行模式（--cli）
 set /p APP_MODE=请选择 App 参数: 
 
-set "APP_FLAG="
-if "%APP_MODE%"=="2" set "APP_FLAG=--cli"
-
 if exist "%ROOT%BiliCollectionDownloader.exe" (
-  "%ROOT%BiliCollectionDownloader.exe"
+  if "%APP_MODE%"=="2" (
+    "%ROOT%BiliCollectionDownloader.exe" --cli
+  ) else (
+    "%ROOT%BiliCollectionDownloader.exe"
+  )
   goto END
 )
 if exist "%ROOT%python\python.exe" (
-  "%ROOT%python\python.exe" "%ROOT%app.py" %APP_FLAG%
+  if "%APP_MODE%"=="2" (
+    "%ROOT%python\python.exe" "%ROOT%app.py" --cli
+  ) else (
+    "%ROOT%python\python.exe" "%ROOT%app.py"
+  )
   goto END
 )
 echo 未找到 BiliCollectionDownloader.exe 或嵌入式 Python 环境。
