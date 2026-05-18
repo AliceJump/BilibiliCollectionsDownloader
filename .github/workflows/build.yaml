@@ -1,44 +1,138 @@
-name: Build EXE
+name: Build Windows Release
 
 permissions:
   contents: write
 
 on:
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: "是否创建 GitHub Release"
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: "手动发布时使用的 tag（例如 v1.0.0）"
+        required: false
+        default: ""
+        type: string
   push:
     tags:
       - "v*"
 
 jobs:
-  build-exe:
+  build-windows:
     runs-on: windows-latest
+    env:
+      PYTHON_VERSION: "3.12.7"
+      ARTIFACT_DIR: "artifacts"
+      PORTABLE_DIR: "artifacts/portable"
+      APP_EXE: "dist/BiliCollectionDownloader.exe"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r dev-requirements.txt
+          python -m pip install -r requirements.txt
+          python -m pip install -r dev-requirements.txt
 
       - name: Build EXE
         shell: pwsh
         run: pyinstaller build.spec
 
-      - name: Upload artifact
+      - name: Build portable package
+        shell: pwsh
+        run: |
+          $artifactDir = Join-Path $PWD "${{ env.ARTIFACT_DIR }}"
+          $portableDir = Join-Path $PWD "${{ env.PORTABLE_DIR }}"
+          $embedDir = Join-Path $portableDir "python"
+          $pythonExe = Join-Path $embedDir "python.exe"
+
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+
+          $embedVersion = "${{ env.PYTHON_VERSION }}"
+          $embedZip = "python-$embedVersion-embed-amd64.zip"
+          $embedZipPath = Join-Path $env:RUNNER_TEMP $embedZip
+          Invoke-WebRequest "https://www.python.org/ftp/python/$embedVersion/$embedZip" -OutFile $embedZipPath
+          Expand-Archive $embedZipPath -DestinationPath $embedDir -Force
+
+          $versionBits = $embedVersion.Split(".")
+          if ($versionBits.Length -lt 2) {
+            throw "Unexpected PYTHON_VERSION format: $embedVersion"
+          }
+          $pthFileName = "python{0}{1}._pth" -f $versionBits[0], $versionBits[1]
+          $pthFile = Join-Path $embedDir $pthFileName
+          $pth = Get-Content $pthFile
+          $pth = $pth -replace '^\s*#\s*import site\s*$', 'import site'
+          Set-Content -Path $pthFile -Value $pth -Encoding ascii
+
+          $getPipPath = Join-Path $env:RUNNER_TEMP "get-pip.py"
+          Invoke-WebRequest "https://bootstrap.pypa.io/get-pip.py" -OutFile $getPipPath
+          & $pythonExe $getPipPath
+          & $pythonExe -m pip install --upgrade pip
+          & $pythonExe -m pip install -r requirements.txt
+
+          $requiredFiles = @("run_web.py", "server.py", "index.html", "requirements.txt", "README.md", "start.bat")
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path $file)) {
+              throw "Required file is missing: $file (expected in $PWD)"
+            }
+          }
+
+          if (-not (Test-Path "${{ env.APP_EXE }}")) {
+            throw "Built executable is missing: ${{ env.APP_EXE }}"
+          }
+
+          Copy-Item "${{ env.APP_EXE }}" $portableDir -Force
+          Copy-Item $requiredFiles -Destination $portableDir -Force
+
+          $portableZip = Join-Path $artifactDir "BilibiliCollectionsDownloader-portable-windows.zip"
+          if (Test-Path $portableZip) {
+            Remove-Item $portableZip -Force
+          }
+          Compress-Archive -Path $portableDir -DestinationPath $portableZip -Force
+
+      - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BiliCollectionDownloader
-          path: dist/BiliCollectionDownloader.exe
+          name: BiliCollectionDownloader-exe
+          path: ${{ env.APP_EXE }}
 
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BiliCollectionDownloader-portable
+          path: artifacts/BilibiliCollectionsDownloader-portable-windows.zip
+
+      - name: Resolve release tag
+        id: release_tag
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tag = "${{ github.ref_name }}"
+          } elseif ("${{ inputs.release_tag }}" -ne "") {
+            $tag = "${{ inputs.release_tag }}"
+          } else {
+            throw "Release creation requires a tag. Push a tag or provide release_tag."
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/BiliCollectionDownloader.exe
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          files: |
+            ${{ env.APP_EXE }}
+            artifacts/BilibiliCollectionsDownloader-portable-windows.zip
