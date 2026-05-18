@@ -1,3 +1,5 @@
+from flask import Response
+import mimetypes
 import os
 import logging
 from datetime import datetime
@@ -15,6 +17,93 @@ _GARB_API = get_api("garb")
 APP_NAME = "biliCollectionDownloader"
 
 
+# ====== 图片代理接口 ======
+
+from urllib.parse import urlparse, unquote
+
+@app.route("/api/proxy_img")
+def proxy_img():
+    """
+    代理图片请求，解决B站图片 Referer 防盗链问题。
+    同时保留原始文件名，避免浏览器保存成 proxy_img.png
+
+    用法：
+        /api/proxy_img?url=xxx
+    """
+
+    url = request.args.get("url", "").strip()
+
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        return jsonify({
+            "code": -1,
+            "message": "缺少或错误的url参数"
+        }), 400
+
+    try:
+        headers = {
+            "Referer": "https://www.bilibili.com/",
+            "User-Agent": _RESOLVE_HEADERS["User-Agent"]
+        }
+
+        resp = req_lib.get(
+            url,
+            headers=headers,
+            stream=True,
+            timeout=10
+        )
+
+        resp.raise_for_status()
+
+        # Content-Type
+        content_type = resp.headers.get("Content-Type")
+
+        if not content_type:
+            ext = url.split(".")[-1].lower()
+            content_type = (
+                mimetypes.guess_type("file." + ext)[0]
+                or "image/jpeg"
+            )
+
+        # =========================
+        # 提取原始文件名
+        # =========================
+
+        parsed = urlparse(url)
+
+        filename = os.path.basename(parsed.path)
+
+        # URL 解码
+        filename = unquote(filename)
+
+        # 防止空文件名
+        if not filename:
+            ext = mimetypes.guess_extension(content_type) or ".jpg"
+            filename = f"image{ext}"
+
+        # =========================
+        # 返回代理内容
+        # =========================
+
+        return Response(
+            resp.raw.read(),
+            content_type=content_type,
+            headers={
+                # inline = 浏览器内显示
+                # attachment = 强制下载
+                "Content-Disposition": f'inline; filename="{filename}"'
+            }
+        )
+
+    except Exception as e:
+        LOGGER.error(
+            f"图片代理失败: {url} | {e}",
+            exc_info=True
+        )
+
+        return jsonify({
+            "code": -1,
+            "message": "图片代理失败"
+        }), 502
 # ====== 日志管理（与 main.py 保持一致）======
 
 class LazyErrorHandler(logging.Handler):

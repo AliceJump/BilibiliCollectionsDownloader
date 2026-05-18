@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <title>Bilibili 合集下载器网页版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .container { max-width: 500px; margin: auto; }
+        input, button { padding: 0.5em; margin: 0.5em 0; width: 100%; }
+        .result { margin-top: 1em; color: green; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Bilibili 合集下载器网页版</h2>
+    <form id="downloadForm">
+        <label for="url">合集链接：</label>
+        <input type="text" id="url" name="url" required placeholder="请输入B站合集链接">
+        <button type="submit">提交下载</button>
+    </form>
+    <div class="result" id="result"></div>
+</div>
+<script>
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const url = document.getElementById('url').value;
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = '正在提交...';
+        const resp = await fetch('/api/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+        resultDiv.textContent = data.message;
+    });
+</script>
+</body>
+</html>
