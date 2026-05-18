@@ -80,8 +80,12 @@ jobs:
           $requiredFiles = @("run_web.py", "server.py", "index.html", "requirements.txt", "README.md", "start.bat")
           foreach ($file in $requiredFiles) {
             if (-not (Test-Path $file)) {
-              throw "Required file is missing: $file"
+              throw "Required file is missing: $file (expected in $PWD)"
             }
+          }
+
+          if (-not (Test-Path "${{ env.APP_EXE }}")) {
+            throw "Built executable is missing: ${{ env.APP_EXE }}"
           }
 
           Copy-Item "${{ env.APP_EXE }}" $portableDir -Force

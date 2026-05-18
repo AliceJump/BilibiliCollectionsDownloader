@@ -1,6 +1,8 @@
 @echo off
 setlocal
 set ROOT=%~dp0
+set EXE_NAME=BiliCollectionDownloader.exe
+set EXE_PATH=%ROOT%%EXE_NAME%
 
 :MENU
 echo.
@@ -26,11 +28,11 @@ echo [1] 桌面窗口模式
 echo [2] 命令行模式（--cli）
 set /p APP_MODE=请选择 App 参数: 
 
-if exist "%ROOT%BiliCollectionDownloader.exe" (
+if exist "%EXE_PATH%" (
   if "%APP_MODE%"=="2" (
-    "%ROOT%BiliCollectionDownloader.exe" --cli
+    "%EXE_PATH%" --cli
   ) else (
-    "%ROOT%BiliCollectionDownloader.exe"
+    "%EXE_PATH%"
   )
   goto END
 )
@@ -42,7 +44,7 @@ if exist "%ROOT%python\python.exe" (
   )
   goto END
 )
-echo 未找到 BiliCollectionDownloader.exe 或嵌入式 Python 环境。
+echo 未找到 %EXE_NAME% 或嵌入式 Python 环境。
 goto END
 
 :WEB
