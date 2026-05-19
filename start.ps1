@@ -14,7 +14,7 @@ $exitCode = 0
 function Show-MainMenu {
     Write-Host ""
     Write-Host "================================"
-    Write-Host "  BilibiliCollectionsDownloader"
+    Write-Host "  BiliCollectionDownloader"
     Write-Host "================================"
     Write-Host "[1] 启动 App 版本（桌面版）"
     Write-Host "[2] 启动 Web 版本（本地服务）"
@@ -71,7 +71,7 @@ while ($true) {
 
         $systemPython = Get-Command python -ErrorAction SilentlyContinue
         if (-not $systemPython) {
-            Write-Host "未找到可用的 Python 解释器（嵌入式或系统 Python）。"
+            Write-Host "未找到可用的系统 Python 解释器。"
             $exitCode = 1
             break
         }
