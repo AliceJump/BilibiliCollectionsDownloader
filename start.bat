@@ -9,6 +9,7 @@ if not exist "%PS1_SCRIPT%" (
   exit /b 1
 )
 
+chcp 65001 >nul
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1_SCRIPT%"
 set EXIT_CODE=%errorlevel%
 endlocal
