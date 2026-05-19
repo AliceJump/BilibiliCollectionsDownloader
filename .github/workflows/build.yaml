@@ -82,7 +82,7 @@ jobs:
           & $pythonExe -m pip install --upgrade pip
           & $pythonExe -m pip install -r requirements.txt
 
-          $requiredFiles = @("run_web.py", "server.py", "index.html", "requirements.txt", "README.md", "start.bat")
+          $requiredFiles = @("run_web.py", "server.py", "index.html", "requirements.txt", "README.md", "start.bat", "start.ps1")
           foreach ($file in $requiredFiles) {
             if (-not (Test-Path $file)) {
               throw "Required file is missing: $file (expected in $PWD)"
