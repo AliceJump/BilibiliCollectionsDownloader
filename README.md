@@ -200,7 +200,8 @@ dlc/
 ├── requirements.txt          # 运行时依赖
 ├── dev-requirements.txt      # 开发依赖
 ├── build.spec                # PyInstaller 打包配置
-├── start.bat                 # 启动脚本
+├── start.bat                 # 启动器（调用 start.ps1）
+├── start.ps1                 # 启动菜单脚本（PowerShell）
 ├── qrcodes/                  # 二维码存放目录（运行时自动创建）
 ├── urls.txt                  # 链接列表（运行时自动创建）
 ├── chrome-win64/             # Chrome 浏览器（命令行模式按需提供）
@@ -213,7 +214,8 @@ dlc/
 
 ```shell
 ├── BiliCollectionDownloader.exe                # 可执行程序
-├── start.bat                                   # 启动脚本（App/Web 菜单）
+├── start.bat                                   # 启动器（调用 start.ps1）
+├── start.ps1                                   # 启动菜单脚本（PowerShell）
 ├── python/                                     # 嵌入式 Python 运行时
 ├── run_web.py                                  # 本地网页服务启动入口
 ├── server.py                                   # Flask 后端

@@ -2,4 +2,5 @@ flask>=3.0
 pywebview[edgechromium]>=5.0
 bilibili-api-python>=17.0
 requests>=2.28
+opencv-python>=4.10
 httpx>=0.28.1
