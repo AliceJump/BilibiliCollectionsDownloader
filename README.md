@@ -66,7 +66,7 @@ python app.py
 
 ```bash
 # 1. 安装依赖
-pip install flask requests
+pip install flask requests bilibili-api-python
 # 或
 pip install -r requirements.txt
 
@@ -121,7 +121,7 @@ python server.py
 
 > <https://www.bilibili.com/h5/mall/dlc-collection?act_id=13688&lottery_id=12345>
 
-分享链接**必须**包含 `act_id` 和 `lottery_id` 两个参数。
+分享链接至少需要能解析出 `act_id`（完整链接通常同时包含 `lottery_id`）。
 
 > 注意：当前网页界面依赖本地后端接口，请不要直接双击 `index.html` 打开。
 
@@ -201,10 +201,10 @@ dlc/
 ├── dev-requirements.txt      # 开发依赖
 ├── build.spec                # PyInstaller 打包配置
 ├── start.bat                 # 启动脚本
-├── qrcodes/                  # 二维码存放目录
-├── urls.txt                  # 链接列表
-├── chrome-win64/             # Chrome 浏览器
-├── chromedriver.exe          # Chrome 驱动
+├── qrcodes/                  # 二维码存放目录（运行时自动创建）
+├── urls.txt                  # 链接列表（运行时自动创建）
+├── chrome-win64/             # Chrome 浏览器（命令行模式按需提供）
+├── chromedriver.exe          # Chrome 驱动（命令行模式按需提供）
 ├── dlc/                      # 下载目录（自动创建）
 └── logs/                     # 日志目录（自动创建）
 ```
