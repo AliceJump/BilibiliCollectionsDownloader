@@ -10,6 +10,10 @@ $embeddedPython = Join-Path $root "python\python.exe"
 $appScript = Join-Path $root "app.py"
 $webScript = Join-Path $root "run_web.py"
 
+function Set-ExitCode([int]$code) {
+    $host.SetShouldExit($code)
+}
+
 function Show-MainMenu {
     Write-Host ""
     Write-Host "================================"
@@ -46,36 +50,43 @@ while ($true) {
 
         if (Test-Path $exePath) {
             & $exePath @cliArgs
-            exit $LASTEXITCODE
+            Set-ExitCode $LASTEXITCODE
+            return
         }
 
         if (Test-Path $embeddedPython) {
             & $embeddedPython $appScript @cliArgs
-            exit $LASTEXITCODE
+            Set-ExitCode $LASTEXITCODE
+            return
         }
 
         Write-Host "未找到 $exeName 或嵌入式 Python 环境。"
-        exit 1
+        Set-ExitCode 1
+        return
     }
 
     if ($mode -eq "2") {
         if (Test-Path $embeddedPython) {
             & $embeddedPython $webScript
-            exit $LASTEXITCODE
+            Set-ExitCode $LASTEXITCODE
+            return
         }
 
         $systemPython = Get-Command python -ErrorAction SilentlyContinue
         if (-not $systemPython) {
             Write-Host "未找到可用的 Python 解释器（嵌入式或系统 Python）。"
-            exit 1
+            Set-ExitCode 1
+            return
         }
 
         & $systemPython.Source $webScript
-        exit $LASTEXITCODE
+        Set-ExitCode $LASTEXITCODE
+        return
     }
 
     if ($mode -ieq "Q") {
-        exit 0
+        Set-ExitCode 0
+        return
     }
 
     Write-Host "输入无效，请重试。"
