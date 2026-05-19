@@ -148,7 +148,7 @@ python server.py
 start.bat
 
 4. 按提示选择：
-• 先选模式：1（App 版本）→ 2（命令行 --cli）
+• 先选模式：1（App 版本）→ 桌面窗口模式
 • 再选输入方式：1（二维码）或 2（urls.txt）
 • 再选视频类型：1（无水印）/ 2（有水印）/ 12（两者）
 ```
@@ -169,10 +169,10 @@ pip install -r requirements.txt
 3. 运行程序
 python main.py
 或
-python app.py --cli
-或
 .\start.bat
 ```
+
+> **说明**：打包后的 EXE 仅保留桌面窗口模式，不再提供 `--cli` 终端模式；如果需要命令行交互，请直接运行 `python main.py`。
 
 ### 下载文件结构
 
@@ -204,8 +204,8 @@ dlc/
 ├── start.ps1                 # 启动菜单脚本（PowerShell）
 ├── qrcodes/                  # 二维码存放目录（运行时自动创建）
 ├── urls.txt                  # 链接列表（运行时自动创建）
-├── chrome-win64/             # Chrome 浏览器（命令行模式按需提供）
-├── chromedriver.exe          # Chrome 驱动（命令行模式按需提供）
+├── chrome-win64/             # Chrome 浏览器（主程序按需提供）
+├── chromedriver.exe          # Chrome 驱动（主程序按需提供）
 ├── dlc/                      # 下载目录（自动创建）
 └── logs/                     # 日志目录（自动创建）
 ```

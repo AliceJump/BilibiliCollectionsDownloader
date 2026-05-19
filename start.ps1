@@ -38,32 +38,14 @@ while ($true) {
     $mode = Read-Host "请选择启动模式"
 
     if ($mode -eq "1") {
-        while ($true) {
-            Write-Host ""
-            Write-Host "[1] 桌面窗口模式"
-            Write-Host "[2] 命令行模式（--cli）"
-            $appMode = Read-Host "请选择 App 参数"
-
-            if ($appMode -eq "1" -or $appMode -eq "2") {
-                break
-            }
-
-            Write-Host "输入无效，请重试。"
-        }
-
-        $cliArgs = @()
-        if ($appMode -eq "2") {
-            $cliArgs = @("--cli")
-        }
-
         if (Test-Path $exePath) {
-            & $exePath @cliArgs
+            & $exePath
             $exitCode = $LASTEXITCODE
             break
         }
 
         if (Test-Path $embeddedPython) {
-            & $embeddedPython $appScript @cliArgs
+            & $embeddedPython $appScript
             $exitCode = $LASTEXITCODE
             break
         }

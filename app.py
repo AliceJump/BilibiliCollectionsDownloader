@@ -3,7 +3,6 @@ app.py — B 站收藏集下载器桌面客户端入口
 
 运行方式：
   python app.py          # 启动 pywebview 原生窗口（默认）
-  python app.py --cli    # 退回命令行交互模式（同 main.py）
 
 打包方式（生成单 EXE）：
   pip install pyinstaller pywebview
@@ -13,11 +12,6 @@ app.py — B 站收藏集下载器桌面客户端入口
 import sys
 import threading
 import socket
-
-# ── 命令行模式直接转发给 main.py ──────────────────────────────────────
-if "--cli" in sys.argv:
-    import main  # noqa: F401 — execution happens at module level
-    sys.exit(0)
 
 # ── 正常 GUI 模式 ──────────────────────────────────────────────────────
 import os
