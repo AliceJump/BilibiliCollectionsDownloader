@@ -25,7 +25,7 @@ while ($true) {
     Show-MainMenu
     $mode = Read-Host "请选择启动模式"
 
-    if ($mode -ieq "1") {
+    if ($mode -eq "1") {
         while ($true) {
             Write-Host ""
             Write-Host "[1] 桌面窗口模式"
@@ -58,7 +58,7 @@ while ($true) {
         exit 1
     }
 
-    if ($mode -ieq "2") {
+    if ($mode -eq "2") {
         if (Test-Path $embeddedPython) {
             & $embeddedPython $webScript
             exit $LASTEXITCODE
