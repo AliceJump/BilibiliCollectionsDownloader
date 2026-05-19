@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Console]::OutputEncoding
@@ -70,7 +70,7 @@ while ($true) {
             exit 1
         }
 
-        & python $webScript
+        & $systemPython.Source $webScript
         exit $LASTEXITCODE
     }
 
