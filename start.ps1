@@ -9,10 +9,7 @@ $exePath = Join-Path $root $exeName
 $embeddedPython = Join-Path $root "python\python.exe"
 $appScript = Join-Path $root "app.py"
 $webScript = Join-Path $root "run_web.py"
-
-function Set-ExitCode([int]$code) {
-    $host.SetShouldExit($code)
-}
+$exitCode = 0
 
 function Show-MainMenu {
     Write-Host ""
@@ -50,44 +47,46 @@ while ($true) {
 
         if (Test-Path $exePath) {
             & $exePath @cliArgs
-            Set-ExitCode $LASTEXITCODE
-            return
+            $exitCode = $LASTEXITCODE
+            break
         }
 
         if (Test-Path $embeddedPython) {
             & $embeddedPython $appScript @cliArgs
-            Set-ExitCode $LASTEXITCODE
-            return
+            $exitCode = $LASTEXITCODE
+            break
         }
 
         Write-Host "未找到 $exeName 或嵌入式 Python 环境。"
-        Set-ExitCode 1
-        return
+        $exitCode = 1
+        break
     }
 
     if ($mode -eq "2") {
         if (Test-Path $embeddedPython) {
             & $embeddedPython $webScript
-            Set-ExitCode $LASTEXITCODE
-            return
+            $exitCode = $LASTEXITCODE
+            break
         }
 
         $systemPython = Get-Command python -ErrorAction SilentlyContinue
         if (-not $systemPython) {
             Write-Host "未找到可用的 Python 解释器（嵌入式或系统 Python）。"
-            Set-ExitCode 1
-            return
+            $exitCode = 1
+            break
         }
 
-        & $systemPython.Source $webScript
-        Set-ExitCode $LASTEXITCODE
-        return
+        & $systemPython.Path $webScript
+        $exitCode = $LASTEXITCODE
+        break
     }
 
     if ($mode -ieq "Q") {
-        Set-ExitCode 0
-        return
+        $exitCode = 0
+        break
     }
 
     Write-Host "输入无效，请重试。"
 }
+
+exit $exitCode
