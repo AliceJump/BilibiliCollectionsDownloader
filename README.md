@@ -16,7 +16,7 @@
 | 模式 | 特点 | 适用场景 |
 | ------ | ------ | -------- |
 | 服务端模式 | 轻量 Flask、后端代理、无 CORS 限制 | **推荐** 日常使用 |
-| 网页版 | 纯浏览器、无需安装、单文件 | 快速体验 |
+| 网页界面 | 浏览器访问、本地服务提供 API、交互直观 | 日常网页操作 |
 | 命令行版 | 批量处理、自动化下载 | 批量操作 |
 | 桌面应用 | EXE 打包、原生窗口、一键运行 | Windows 用户 |
 
@@ -60,7 +60,7 @@ python app.py
 
 - **解决 CORS** — 后端代理转发 API，无跨域限制
 - **不存储文件** — 仅返回下载链接，不保存任何内容
-- **轻量依赖** — 仅需 `flask` 和 `requests`
+- **轻量依赖** — 依赖 `flask`、`requests`、`bilibili-api-python`
 
 ### 使用步骤
 
@@ -79,25 +79,33 @@ python server.py
 
 ---
 
-## 网页版
+## 网页界面模式
 
 ### 特点
 
-- **纯本地运行** — 所有处理在浏览器端，无需服务器
-- **零安装** — 单个 `index.html`，开箱即用
-- **多种输入** — 链接 / 二维码 / 手动 ID
+- **浏览器操作** — 使用网页界面完成参数输入与批量下载
+- **本地服务支持** — 通过 Flask 提供 `/api/*` 接口，避免跨域问题
+- **多种输入** — `act_id` / 含 `act_id` 的链接 / b23 短链 / 二维码
 
 ### 使用步骤
 
-1. **打开文件**：用浏览器打开 `index.html`
+1. **启动本地服务**（任选其一）：
 
-2. **输入内容**（三选一）：
+```bash
+python run_web.py
+# 或
+python server.py
+```
 
-   • 粘贴链接   — 将分享链接贴到文本框（每行一个）
+2. **打开页面**：浏览器访问 `http://127.0.0.1:5000`
+
+3. **输入内容**（任选其一）：
+
+   • 输入 `act_id`
+   • 粘贴链接   — 含 `act_id` 的完整链接或 b23 短链
    • 上传二维码 — 上传收藏集分享二维码图片
-   • 手动输入 ID — 直接填写 act_id 和 lottery_id
 
-3. **选择类型**：勾选要下载的内容
+4. **选择类型**：勾选要下载的内容
 
 ```shell
    □ 图片
@@ -105,9 +113,9 @@ python server.py
    □ 带水印视频
 ```
 
-4. **获取链接**：点击 **获取下载链接**
+5. **获取链接**：点击 **获取下载链接**
 
-5. **下载文件**：点击卡片中的链接或点击 **全部打开**
+6. **下载文件**：点击卡片中的链接或点击 **下载全部**
 
 ### 链接格式示例
 
@@ -115,17 +123,7 @@ python server.py
 
 分享链接**必须**包含 `act_id` 和 `lottery_id` 两个参数。
 
-### CORS 跨域问题
-
-如果收到网络错误，可尝试：
-
-```bash
-# 方案 1：安装浏览器扩展
-# Chrome/Edge 应用商店搜索：CORS Unblock
-
-# 方案 2：启动参数绕过（仅用于本地调试）
-chrome.exe --disable-web-security --user-data-dir=C:\tmp\nocsec
-```
+> 注意：当前网页界面依赖本地后端接口，请不要直接双击 `index.html` 打开。
 
 ---
 
@@ -150,8 +148,9 @@ chrome.exe --disable-web-security --user-data-dir=C:\tmp\nocsec
 start.bat
 
 4. 按提示选择：
-• 输入方式：1（二维码）或 2（urls.txt）
-• 视频类型：1（无水印）/ 2（有水印）/ 12（两者）
+• 先选模式：1（App 版本）→ 2（命令行 --cli）
+• 再选输入方式：1（二维码）或 2（urls.txt）
+• 再选视频类型：1（无水印）/ 2（有水印）/ 12（两者）
 ```
 
 ### 从源码运行
@@ -168,7 +167,9 @@ pip install -r requirements.txt
 └── chromedriver.exe
 
 3. 运行程序
-python app.py
+python main.py
+或
+python app.py --cli
 或
 .\start.bat
 ```
@@ -192,7 +193,9 @@ dlc/
 ```shell
 ├── app.py                    # 桌面应用入口（pywebview + Flask，可打包 EXE）
 ├── server.py                 # 本地服务端（Flask 代理）
+├── run_web.py                # 本地网页服务启动入口
 ├── index.html                # 网页版前端
+├── web.py                    # 旧版模板示例（未作为主入口）
 ├── main.py                   # 命令行版主程序
 ├── requirements.txt          # 运行时依赖
 ├── dev-requirements.txt      # 开发依赖
@@ -209,13 +212,14 @@ dlc/
 ### 编译版本（预构建 EXE）
 
 ```shell
-├── BiliCollectionDownloader.exe  # 可执行程序
-├── start.bat                     # 启动脚本
-├── chrome-win64/                 # Chrome 浏览器
-├── chromedriver.exe              # Chrome 驱动
-├── qrcodes/                      # 二维码存放目录
-├── urls.txt                      # 链接列表
-└── README.md                     # 使用说明
+├── BiliCollectionDownloader.exe                # 可执行程序
+├── start.bat                                   # 启动脚本（App/Web 菜单）
+├── python/                                     # 嵌入式 Python 运行时
+├── run_web.py                                  # 本地网页服务启动入口
+├── server.py                                   # Flask 后端
+├── index.html                                  # 网页前端
+├── requirements.txt                            # 依赖清单
+└── README.md                                   # 使用说明
 ```
 
 ---
@@ -230,12 +234,10 @@ dlc/
 
 请检查 Chrome 和 ChromeDriver 的配置是否正确，确保浏览器和驱动版本匹配。
 
-### 3. 网络请求失败（网页版）
+### 3. 网页界面打不开或请求失败
 
-这是 CORS 跨域问题。可以尝试：
-
-- 安装 **CORS Unblock** 浏览器扩展
-- 或用启动参数运行 Chrome：`chrome.exe --disable-web-security --user-data-dir=C:\tmp\nocsec`
+请先确认已启动本地服务（`python run_web.py` 或 `python server.py`），并通过  
+`http://127.0.0.1:5000` 访问，而不是直接打开 `index.html` 文件。
 
 ---
 
