@@ -3,7 +3,18 @@ $ErrorActionPreference = "Continue"
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Console]::OutputEncoding
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptPath = $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrEmpty($scriptPath)) {
+    if ($PSScriptRoot) {
+        $root = $PSScriptRoot
+    }
+    else {
+        $root = (Get-Location).ProviderPath
+    }
+}
+else {
+    $root = Split-Path -Parent $scriptPath
+}
 $exeName = "BiliCollectionDownloader.exe"
 $exePath = Join-Path $root $exeName
 $embeddedPython = Join-Path $root "python\python.exe"

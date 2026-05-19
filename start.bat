@@ -9,8 +9,7 @@ if not exist "%PS1_SCRIPT%" (
   exit /b 1
 )
 
-chcp 65001 >nul
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1_SCRIPT%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -Encoding UTF8 -Raw '%PS1_SCRIPT%' | Out-String | Invoke-Expression"
 set EXIT_CODE=%errorlevel%
 endlocal
 exit /b %EXIT_CODE%

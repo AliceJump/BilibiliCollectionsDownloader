@@ -213,7 +213,7 @@ def get_lottery_params_by_act_id(act_id):
 
 @app.route("/")
 def index():
-    return send_file("index.html")
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html"))
 
 
 @app.route("/api/fetch")
