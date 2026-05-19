@@ -2,6 +2,7 @@ from flask import Response
 import mimetypes
 import os
 import logging
+import hashlib
 from datetime import datetime
 from urllib.parse import urlparse
 import requests as req_lib
@@ -353,6 +354,185 @@ def save_zip():
     except Exception as e:
         LOGGER.error("保存 ZIP 失败", exc_info=True)
         return jsonify({"code": -1, "message": "保存失败"}), 500
+
+
+def _sanitize_name(name: str, default_name: str) -> str:
+    value = (name or "").strip()
+    value = re.sub(r'[<>:"/\\|?*]', '_', value)
+    value = value.strip(" .")
+    return value or default_name
+
+
+def _unique_file_path(dir_path: str, filename: str) -> str:
+    name, ext = os.path.splitext(filename)
+    candidate = os.path.join(dir_path, filename)
+    index = 1
+    while os.path.exists(candidate):
+        candidate = os.path.join(dir_path, f"{name}({index}){ext}")
+        index += 1
+    return candidate
+
+
+def _sha256_file(file_path: str) -> str:
+    hasher = hashlib.sha256()
+    with open(file_path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(8192), b""):
+            if chunk:
+                hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _find_duplicate_by_hash(dir_path: str, file_hash: str, exclude_path: str = "") -> str:
+    exclude_abs = os.path.abspath(exclude_path) if exclude_path else ""
+    for name in os.listdir(dir_path):
+        candidate = os.path.join(dir_path, name)
+        if not os.path.isfile(candidate):
+            continue
+        if exclude_abs and os.path.abspath(candidate) == exclude_abs:
+            continue
+        try:
+            if _sha256_file(candidate) == file_hash:
+                return candidate
+        except Exception:
+            continue
+    return ""
+
+
+def _save_single_link(item: dict, root_dir: str) -> dict:
+    type_folder_map = {
+        "dl-a-img": "img",
+        "dl-a-vid": "video",
+        "dl-a-wm": "watermark_video",
+    }
+
+    if not isinstance(item, dict):
+        raise ValueError("item 不是对象")
+
+    raw_url = (item.get("url") or "").strip()
+    if not raw_url or not (raw_url.startswith("http://") or raw_url.startswith("https://")):
+        raise ValueError("url 无效")
+
+    item_type = (item.get("type") or "").strip()
+    folder_name = type_folder_map.get(item_type, "other")
+
+    collection_name = _sanitize_name(item.get("collectionFolder") or "", "未知合集")
+    target_dir = os.path.join(root_dir, collection_name, folder_name)
+    os.makedirs(target_dir, exist_ok=True)
+
+    parsed_url = urlparse(raw_url)
+    raw_basename = os.path.basename(parsed_url.path)
+    fallback_name = unquote(raw_basename) if raw_basename else "resource.bin"
+    file_name = _sanitize_name(item.get("filename") or "", fallback_name)
+    save_path = _unique_file_path(target_dir, file_name)
+
+    headers = {
+        "Referer": "https://www.bilibili.com/",
+        "User-Agent": _RESOLVE_HEADERS["User-Agent"],
+    }
+
+    with req_lib.get(raw_url, headers=headers, stream=True, timeout=(8, 30)) as resp:
+        resp.raise_for_status()
+        hasher = hashlib.sha256()
+        with open(save_path, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=8192):
+                if chunk:
+                    fh.write(chunk)
+                    hasher.update(chunk)
+
+    content_hash = hasher.hexdigest()
+    duplicated_path = _find_duplicate_by_hash(target_dir, content_hash, save_path)
+    if duplicated_path:
+        try:
+            os.remove(save_path)
+        except Exception:
+            pass
+        return {
+            "code": 0,
+            "path": duplicated_path,
+            "filename": os.path.basename(duplicated_path),
+            "hash": content_hash,
+            "duplicate": True,
+        }
+
+    return {
+        "code": 0,
+        "path": save_path,
+        "filename": os.path.basename(save_path),
+        "hash": content_hash,
+        "duplicate": False,
+    }
+
+
+@app.route("/api/save_file", methods=["POST"])
+def save_file():
+    """
+    应用模式保存单个文件，供前端逐个调用实现实时进度展示。
+    """
+    payload = request.get_json(silent=True) or {}
+    item = payload.get("item")
+    root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
+    os.makedirs(root_dir, exist_ok=True)
+
+    try:
+        result = _save_single_link(item, root_dir)
+        result["root_dir"] = root_dir
+        return jsonify(result)
+    except Exception as e:
+        LOGGER.error(f"保存单文件失败: error={e}", exc_info=True)
+        return jsonify({"code": -1, "message": str(e), "root_dir": root_dir}), 500
+
+
+@app.route("/api/save_files", methods=["POST"])
+def save_files():
+    """
+    应用模式批量下载并按目录保存文件。
+    目录结构：downloads/<合集名>/<类型目录>/<文件名>
+    """
+    payload = request.get_json(silent=True) or {}
+    links = payload.get("links") or []
+
+    if not isinstance(links, list) or not links:
+        return jsonify({"code": -1, "message": "缺少 links 参数"}), 400
+
+    root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
+    os.makedirs(root_dir, exist_ok=True)
+
+    saved_count = 0
+    failed_count = 0
+    duplicate_count = 0
+    results = []
+
+    for i, item in enumerate(links):
+        try:
+            one = _save_single_link(item, root_dir)
+            saved_count += 1
+            if one.get("duplicate"):
+                duplicate_count += 1
+            results.append({
+                "index": i,
+                **one,
+            })
+        except Exception as e:
+            failed_count += 1
+            LOGGER.error(f"保存文件失败: index={i}, error={e}", exc_info=True)
+            results.append({
+                "index": i,
+                "code": -1,
+                "message": str(e),
+            })
+
+    code = 0 if saved_count > 0 else -1
+    message = "完成" if failed_count == 0 else f"部分失败: {failed_count}"
+    return jsonify({
+        "code": code,
+        "message": message,
+        "root_dir": root_dir,
+        "total": len(links),
+        "saved_count": saved_count,
+        "failed_count": failed_count,
+        "duplicate_count": duplicate_count,
+        "results": results,
+    })
 
 
 if __name__ == "__main__":

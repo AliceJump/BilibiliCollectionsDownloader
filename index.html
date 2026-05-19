@@ -1081,6 +1081,17 @@
           .replace(/"/g, "&quot;");
       }
 
+      function isAppMode() {
+        try {
+          if (typeof window.pywebview !== "undefined") return true;
+        } catch (e) {}
+        try {
+          const params = new URLSearchParams(location.search);
+          if (params.get("app") === "1") return true;
+        } catch (e) {}
+        return false;
+      }
+
       /* ============================================================
      Main: start fetch
   ============================================================ */
@@ -1302,6 +1313,63 @@
             link.zipPath = zipPath;
           }
 
+          // 应用模式下优先走后端按目录落盘
+          if (isAppMode()) {
+            try {
+              let savedCount = 0;
+              let failedCount = 0;
+              let duplicateCount = 0;
+              let rootDir = "";
+
+              for (let i = 0; i < links.length; i++) {
+                const link = links[i];
+                setZipProgress(`正在保存 ${i + 1}/${links.length}：${link.filename}`);
+
+                try {
+                  const resp = await fetch("/api/save_file", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ item: link }),
+                  });
+                  const j = await resp.json();
+
+                  if (j && j.code === 0) {
+                    savedCount += 1;
+                    if (j.duplicate) {
+                      duplicateCount += 1;
+                    }
+                    if (j.root_dir) {
+                      rootDir = j.root_dir;
+                    }
+                  } else {
+                    failedCount += 1;
+                    console.error("保存单文件失败:", j, link);
+                  }
+                } catch (err) {
+                  failedCount += 1;
+                  console.error("保存单文件异常:", err, link);
+                }
+              }
+
+              if (savedCount > 0) {
+                if (failedCount > 0) {
+                  setZipProgress(
+                    `已保存 ${savedCount}/${links.length}，去重 ${duplicateCount}，失败 ${failedCount}，目录：${rootDir || "downloads"}`,
+                  );
+                } else {
+                  setZipProgress(`已保存 ${savedCount}/${links.length}，去重 ${duplicateCount}，目录：${rootDir || "downloads"}`);
+                }
+                return;
+              }
+
+              console.error("应用模式保存失败: 无文件保存成功");
+              setZipProgress("应用目录保存失败，改为打包 ZIP...");
+            } catch (err) {
+              console.error("应用模式保存异常:", err);
+              setZipProgress("应用目录保存失败，改为打包 ZIP...");
+            }
+          }
+
           // =========================
           // 创建 ZIP
           // =========================
@@ -1410,44 +1478,7 @@
           const finalZipName = `${safeZipName}_${typeSuffix}.zip`;
           saveAs(zipBlob, finalZipName);
 
-          // 仅在 app 模式下才上传到后端并写入应用目录（默认不上传）
-          function isAppMode() {
-            try {
-              if (typeof window.pywebview !== "undefined") return true;
-            } catch (e) {}
-            try {
-              const params = new URLSearchParams(location.search);
-              if (params.get("app") === "1") return true;
-            } catch (e) {}
-            return false;
-          }
-
-          if (isAppMode()) {
-            try {
-              setZipProgress("正在保存到应用目录...");
-              const fd = new FormData();
-              fd.append("file", zipBlob, finalZipName);
-              fd.append("filename", finalZipName);
-
-              const resp = await fetch("/api/save_zip", {
-                method: "POST",
-                body: fd,
-              });
-
-              const j = await resp.json();
-              if (j && j.code === 0) {
-                setZipProgress(`已保存到：${j.path}`);
-              } else {
-                console.error("保存到后端失败:", j);
-                setZipProgress("已生成压缩包（客户端保存）");
-              }
-            } catch (err) {
-              console.error("上传压缩包失败:", err);
-              setZipProgress("已生成压缩包（客户端保存）");
-            }
-          } else {
-            setZipProgress("下载完成（未上传）");
-          }
+          setZipProgress("下载完成（ZIP）");
 
           btn.disabled = false;
         } finally {

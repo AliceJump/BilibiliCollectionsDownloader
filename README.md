@@ -26,7 +26,7 @@
 ### 特点
 
 - **原生窗口** — 使用 `pywebview` 嵌套 Flask，系统原生窗口渲染
-- **一键运行** — 使用 `python/` 内嵌运行时，无需安装 Python
+- **一键运行** — 支持内嵌运行时，无需安装 Python
 - **解决 CORS** — 本地 Flask 代理转发 B 站 API，无跨域限制
 
 ### 快速开始
@@ -123,63 +123,18 @@ python server.py
 
 ---
 
-## 命令行版
+## 下载文件结构
 
-### 快速方式（推荐）
-
-从 [Releases](https://github.com/AliceJump/BilibiliCollectionsDownloader/releases) 下载便携包：
-
-`BilibiliCollectionsDownloader-portable-windows.zip`
-
-**快速开始**：
-
-```bash
-1. 解压文件夹
-
-2. 放置输入内容（选一个）：
-• 方案 A：将二维码图片放入 qrcodes/ 文件夹
-• 方案 B：编辑 urls.txt，每行一个链接
-
-3. 双击运行
-start.bat
-
-4. 按提示选择：
-• 先选模式：1（App 版本）→ 桌面窗口模式
-• 再选输入方式：1（二维码）或 2（urls.txt）
-• 再选视频类型：1（无水印）/ 2（有水印）/ 12（两者）
-```
-
-### 从源码运行
-
-**系统要求**：Python 3.12.7+
-
-```bash
-1. 安装依赖
-pip install -r requirements.txt
-
-2. 配置 Chrome
-需要将以下文件放在项目根目录：
-├── chrome-win64/chrome.exe
-└── chromedriver.exe
-
-3. 运行程序
-python main.py
-或
-.\start.bat
-```
-
-> **说明**：便携包使用内嵌 Python 运行时启动桌面窗口模式；如果需要命令行交互，请直接运行 `python main.py`。
-
-### 下载文件结构
-
-下载的文件会按活动和类型自动分类：
+当前版本的下载行为如下：
 
 ```shell
-dlc/
-└── <活动名>/
-    ├── video/           # 无水印视频
-    ├── watermark_video/ # 有水印视频
-    └── img/             # 图片
+浏览器模式（默认）
+└── 由浏览器下载到系统“下载”目录
+   └── <合集名>_<类型>.zip
+
+应用模式（pywebview）
+└── downloads/
+   └── <合集名>_<类型>.zip
 ```
 
 ## 项目结构
@@ -187,53 +142,43 @@ dlc/
 ### 源码版本（开发用）
 
 ```shell
+├── .github/                   # GitHub Actions 工作流
+│   └── workflows/
+│       └── build.yaml
 ├── app.py                    # 桌面应用入口（pywebview + Flask，可打包 EXE）
 ├── server.py                 # 本地服务端（Flask 代理）
 ├── run_web.py                # 本地网页服务启动入口
 ├── index.html                # 网页版前端
+├── templates/
+│   └── index.html            # Flask 模板页
 ├── web.py                    # 旧版模板示例（未作为主入口）
-├── main.py                   # 命令行版主程序
 ├── requirements.txt          # 运行时依赖
 ├── dev-requirements.txt      # 开发依赖
 ├── start.bat                 # 启动器（调用 start.ps1）
 ├── start.ps1                 # 启动菜单脚本（PowerShell）
-├── qrcodes/                  # 二维码存放目录（运行时自动创建）
-├── urls.txt                  # 链接列表（运行时自动创建）
-├── chrome-win64/             # Chrome 浏览器（主程序按需提供）
-├── chromedriver.exe          # Chrome 驱动（主程序按需提供）
-├── dlc/                      # 下载目录（自动创建）
+├── downloads/                # 应用模式压缩包保存目录（自动创建）
 └── logs/                     # 日志目录（自动创建）
 ```
 
-### 便携版本（内嵌 Python）
+打包产物目录（本地构建后可能出现）：
 
 ```shell
-├── start.bat                                   # 启动器（调用 start.ps1）
-├── start.ps1                                   # 启动菜单脚本（PowerShell）
-├── python/                                     # 嵌入式 Python 运行时
-├── run_web.py                                  # 本地网页服务启动入口
-├── server.py                                   # Flask 后端
-├── index.html                                  # 网页前端
-├── requirements.txt                            # 依赖清单
-└── README.md                                   # 使用说明
+├── build/                    # 打包中间产物
+└── dist/                     # 打包输出目录
 ```
 
 ---
 
 ## 常见问题
 
-### 1. 二维码未能识别（命令行版）
-
-确保二维码图片路径正确，并且二维码内容为有效的 B 站收藏集分享链接。
-
-### 2. 无法下载视频或图片（命令行版）
-
-请检查 Chrome 和 ChromeDriver 的配置是否正确，确保浏览器和驱动版本匹配。
-
-### 3. 网页界面打不开或请求失败
+### 1. 网页界面打不开或请求失败
 
 请先确认已启动本地服务（`python run_web.py` 或 `python server.py`），并通过  
 `http://127.0.0.1:5000` 访问，而不是直接打开 `index.html` 文件。
+
+### 2. 桌面窗口无法启动
+
+请确认已安装依赖并通过 `python app.py` 启动；如果是 Windows，请确认系统可用 Microsoft Edge WebView2 运行时。
 
 ---
 
