@@ -533,6 +533,8 @@ function renderResults(collections) {
     } else {
         document.getElementById("dl-type-chks").style.display = "none";
     }
+
+    updateActionButtons();
 }
 
 function updateActionButtons() {
@@ -1032,6 +1034,7 @@ function clearAll() {
     window._queriedActIds = new Set();
     window._succeededActIds = new Set();
     setZipProgress('');
+    updateActionButtons();
 }
 function setZipProgress(text) {
     const el = document.getElementById("zip-progress-text");
@@ -1107,3 +1110,14 @@ if (document.readyState === "loading") {
 } else {
     autoStartFromUrl();
 }
+
+// ── 回到顶部 ──
+window.addEventListener("scroll", function () {
+    var el = document.getElementById("back-top");
+    if (!el) return;
+    if (window.scrollY > 400) {
+        el.classList.add("show");
+    } else {
+        el.classList.remove("show");
+    }
+});

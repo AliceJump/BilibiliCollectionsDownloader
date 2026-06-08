@@ -56,6 +56,18 @@ header .sub {
     margin-top: 2px;
 }
 
+.header-github {
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.75);
+    transition: color 0.15s, transform 0.15s;
+    line-height: 0;
+}
+
+.header-github:hover {
+    color: #fff;
+    transform: scale(1.1);
+}
+
 /* ── Layout ── */
 .wrap {
     max-width: 860px;
@@ -282,6 +294,7 @@ header .sub {
 .btn-ghost {
     background: var(--border);
     color: #aaa;
+    cursor: default;
 }
 
 .btn-ghost.ghost-available {
@@ -290,6 +303,10 @@ header .sub {
 }
 
 .btn-ghost.ghost-available:hover {
+    background: #d5d8dc;
+}
+
+.btn-ghost:hover {
     background: #d5d8dc;
 }
 
@@ -756,6 +773,40 @@ footer a:hover {
     box-shadow: 0 6px 24px rgba(255, 77, 79, 0.45);
 }
 
+/* ── 回到顶部 ── */
+.back-top {
+    position: fixed;
+    bottom: 30px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--card);
+    color: var(--sub);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 40px;
+    text-align: center;
+    cursor: default;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, background 0.15s, color 0.15s;
+    z-index: 999;
+    user-select: none;
+}
+
+.back-top.show {
+    opacity: 1;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.back-top:hover {
+    background: var(--pink);
+    color: #fff;
+}
+
 @media (max-width: 560px) {
     header {
         padding: 14px 16px;
@@ -772,5 +823,14 @@ footer a:hover {
     .toast {
         padding: 12px 20px;
         font-size: 13px;
+    }
+
+    .back-top {
+        bottom: 16px;
+        right: 14px;
+        width: 36px;
+        height: 36px;
+        font-size: 17px;
+        line-height: 36px;
     }
 }
