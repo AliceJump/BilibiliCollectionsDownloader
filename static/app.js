@@ -295,12 +295,12 @@ function clearAlerts() {
    Render results
    ============================================================ */
 function renderResults(collections) {
-    const body = document.getElementById("results-body");
-    body.innerHTML = "";
+    const container = document.getElementById("results-body");
+    container.innerHTML = "";
     state.allLinks = [];
 
     if (!collections.length) {
-        body.innerHTML =
+        container.innerHTML =
             '<div class="empty"><div class="icon">😕</div><p>未找到可下载内容</p></div>';
         return;
     }
@@ -310,8 +310,33 @@ function renderResults(collections) {
     for (const coll of collections) {
         const block = document.createElement("div");
         block.className = "coll-block card";
-        block.innerHTML = `<div class=\"coll-name\">${escHtml(coll.name)}</div>
-        <div class=\"coll-sub\">共 ${coll.cards.length} 个卡牌</div>`;
+
+        // ── Header (点击切换折叠) ──
+        const header = document.createElement("div");
+        header.className = "coll-header";
+        header.setAttribute("role", "button");
+        header.setAttribute("tabindex", "0");
+        header.setAttribute("aria-expanded", "true");
+
+        const toggle = document.createElement("span");
+        toggle.className = "coll-toggle";
+        toggle.textContent = "▼";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "coll-name";
+        nameSpan.textContent = coll.name;
+
+        const subSpan = document.createElement("span");
+        subSpan.className = "coll-sub";
+        subSpan.textContent = "共 " + coll.cards.length + " 个卡牌";
+
+        header.appendChild(toggle);
+        header.appendChild(nameSpan);
+        header.appendChild(subSpan);
+
+        // ── Body (可折叠) ──
+        const body = document.createElement("div");
+        body.className = "coll-body";
 
         const list = document.createElement("div");
         list.className = "dl-list";
@@ -427,8 +452,18 @@ function renderResults(collections) {
             list.appendChild(item);
         }
 
-        block.appendChild(list);
-        body.appendChild(block);
+        body.appendChild(list);
+        block.appendChild(header);
+        block.appendChild(body);
+
+        // ── 点击切换折叠 ──
+        header.addEventListener("click", function () {
+            var isClosed = body.classList.toggle("closed");
+            toggle.classList.toggle("collapsed", isClosed);
+            header.setAttribute("aria-expanded", !isClosed);
+        });
+
+        container.appendChild(block);
     }
 
     if (state.allLinks.length > 0) {

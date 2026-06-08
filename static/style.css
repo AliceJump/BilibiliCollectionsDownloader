@@ -392,13 +392,19 @@ header .sub {
 .coll-name {
     font-size: 16px;
     font-weight: 700;
-    margin-bottom: 2px;
 }
 
 .coll-sub {
     font-size: 12px;
     color: var(--sub);
     margin-bottom: 14px;
+}
+
+.coll-header .coll-sub {
+    font-size: 11px;
+    margin-bottom: 0;
+    line-height: 1;
+    align-self: center;
 }
 
 .dl-list {
@@ -586,6 +592,37 @@ footer {
 .btn-share:hover {
     background: #e0e0e0;
     color: var(--pink);
+}
+
+/* ── Collapse ── */
+.coll-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.coll-toggle {
+    font-size: 12px;
+    color: var(--sub);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.coll-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.coll-body {
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+    max-height: 2000px;
+}
+
+.coll-body.closed {
+    max-height: 0;
 }
 
 /* ── Summary stats ── */
