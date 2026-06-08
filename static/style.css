@@ -60,7 +60,7 @@ header .sub {
 .wrap {
     max-width: 860px;
     margin: 28px auto;
-    padding: 0 18px;
+    padding: 0 18px 60px;
 }
 
 /* ── Card ── */
@@ -281,10 +281,15 @@ header .sub {
 
 .btn-ghost {
     background: var(--border);
-    color: var(--text);
+    color: #aaa;
 }
 
-.btn-ghost:hover {
+.btn-ghost.ghost-available {
+    color: var(--text);
+    cursor: pointer;
+}
+
+.btn-ghost.ghost-available:hover {
     background: #d5d8dc;
 }
 
@@ -370,6 +375,7 @@ header .sub {
 /* ── Results ── */
 .results-wrap {
     display: none;
+    padding-bottom: 20px;
 }
 
 .results-wrap.on {
@@ -590,12 +596,22 @@ footer a:hover {
 /* ── Share button ── */
 .btn-share {
     background: #f0f0f0;
-    color: #666;
+    color: #aaa;
+    cursor: default;
 }
 
-.btn-share:hover {
-    background: #e0e0e0;
-    color: var(--pink);
+.btn-share.btn-available {
+    background: #e8f5e9;
+    color: #389e0d;
+    cursor: pointer;
+}
+
+.btn-share.btn-available:hover {
+    background: #c8e6c9;
+}
+
+.btn-share:disabled {
+    pointer-events: none;
 }
 
 /* ── Collapse ── */
@@ -648,11 +664,26 @@ footer a:hover {
 .coll-body {
     overflow: hidden;
     transition: max-height 0.35s ease;
-    max-height: 2000px;
+    max-height: none;
 }
 
 .coll-body.closed {
-    max-height: 0;
+    max-height: 0 !important;
+}
+
+/* ── 底部收起按钮 ── */
+.coll-bottom-btn {
+    text-align: center;
+    font-size: 12px;
+    color: var(--sub);
+    cursor: pointer;
+    padding: 8px 0 4px;
+    transition: color 0.15s;
+    user-select: none;
+}
+
+.coll-bottom-btn:hover {
+    color: var(--pink);
 }
 
 /* ── 右上角 B 站跳转链接 ── */

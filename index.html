@@ -19,7 +19,7 @@
         (function () {
             var css = document.createElement('link');
             css.rel = 'stylesheet';
-            css.href = window.API_BASE + '/static/style.css';
+            css.href = window.API_BASE + '/static/style.css?v=' + Date.now();
             document.head.appendChild(css);
         })();
     </script>
@@ -92,7 +92,7 @@
                     <button class="btn btn-share" id="btn-share" onclick="doShare()">
                         🔗 分享
                     </button>
-                    <button class="btn btn-ghost" onclick="clearAll()">🗑️ 清空</button>
+                    <button class="btn btn-ghost" id="btn-clear" onclick="clearAll()">🗑️ 清空</button>
                 </div>
             </div>
         </div>
@@ -149,11 +149,11 @@
     <!-- Toast 提示 -->
     <div class="toast" id="toast"></div>
 
-    <!-- 主应用 JS：通过 API_BASE 动态加载 -->
+    <!-- 主应用 JS：通过 API_BASE 动态加载，v2 新增表情包支持 -->
     <script>
         (function () {
             var js = document.createElement('script');
-            js.src = window.API_BASE + '/static/app.js';
+            js.src = window.API_BASE + '/static/app.js?v=' + Date.now();
             js.defer = false;
             document.body.appendChild(js);
         })();

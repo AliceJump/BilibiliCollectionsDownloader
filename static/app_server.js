@@ -141,10 +141,7 @@ function processQrFiles(files) {
                 badge.textContent = actId ? "✓ act_id=" + actId : "✗ 无 act_id";
 
                 if (actId) {
-                    // 追加到已有 act_id 列表（去重）
-                    var existing = parseActIds(document.getElementById("act-id-input").value);
-                    if (existing.indexOf(actId) === -1) existing.push(actId);
-                    document.getElementById("act-id-input").value = existing.join(", ");
+                    document.getElementById("act-id-input").value = actId;
                     startFetch();
                 }
             };
@@ -257,6 +254,44 @@ function parseData(data, opts) {
             });
     }
 
+    // Process redeem items in collect_list (emoji packages, etc.)
+    function processRedeemResources(redeem) {
+        if (!redeem || !redeem._suit_resources) return;
+        var resources = redeem._suit_resources;
+        if (!Array.isArray(resources)) return;
+        resources.forEach(function (res) {
+            if (!res || res.type !== "emoji") return;
+            var cn = res.name || "表情";
+            if (!map.has(cn)) map.set(cn, { card_name: cn, links: [] });
+            var entry = map.get(cn);
+            var images = res.images || {};
+            if (opts.img && images.static) {
+                entry.links.push({
+                    url: images.static,
+                    label: "😊",
+                    cls: "dl-a-emoji",
+                    ext: "png",
+                });
+            }
+            if (opts.img && images.gif) {
+                entry.links.push({
+                    url: images.gif,
+                    label: "😊",
+                    cls: "dl-a-emoji",
+                    ext: "gif",
+                });
+            }
+            if (opts.img && images.webp) {
+                entry.links.push({
+                    url: images.webp,
+                    label: "😊",
+                    cls: "dl-a-emoji",
+                    ext: "webp",
+                });
+            }
+        });
+    }
+
     (data.item_list || []).forEach(
         (item) => item && processCard(item.card_info),
     );
@@ -267,11 +302,13 @@ function parseData(data, opts) {
             cl.forEach(function (c) {
                 if (c && c.card_item && c.card_item.card_type_info)
                     processCardTypeInfo(c.card_item.card_type_info);
+                processRedeemResources(c);
             });
         } else if (typeof cl === "object") {
             (cl.collect_infos || []).forEach(function (c) {
                 if (c && c.card_item && c.card_item.card_type_info)
                     processCardTypeInfo(c.card_item.card_type_info);
+                processRedeemResources(c);
             });
         }
     }
@@ -392,9 +429,12 @@ function renderResults(collections) {
                     types.push("vid");
                 if (dl.cls === "dl-a-wm" && !types.includes("wm"))
                     types.push("wm");
+                if (dl.cls === "dl-a-emoji" && !types.includes("emoji"))
+                    types.push("emoji");
             }
             // tab标签
-            const tabNames = { img: "🖼️", vid: "🎬", wm: "💧" };
+            const tabNames = { img: "🖼️", vid: "🎬", wm: "💧", emoji: "😊" };
+            let activeType = types[0] || "img";
             let activeType = types[0] || "img";
             types.forEach((type) => {
                 const tab = document.createElement("div");
@@ -449,6 +489,14 @@ function renderResults(collections) {
                         video.preload = "none";
                         preview.appendChild(video);
                         hasContent = true;
+                    } else if (activeType === "emoji" && dl.cls === "dl-a-emoji") {
+                        const img = document.createElement("img");
+                        img.src = `${API_BASE}/api/proxy_img?url=${encodeURIComponent(dl.url)}`;
+                        img.alt = "表情预览";
+                        img.loading = "lazy";
+                        img.referrerPolicy = "no-referrer";
+                        preview.appendChild(img);
+                        hasContent = true;
                     }
                 }
                 if (!hasContent) {
@@ -478,46 +526,18 @@ function renderResults(collections) {
         }
 
         body.appendChild(list);
-
-        // ── 底部收起按钮 ──
-        var collapseBtn = document.createElement("div");
-        collapseBtn.className = "coll-bottom-btn";
-        collapseBtn.textContent = "▲ 收起";
-        body.appendChild(collapseBtn);
-
         block.appendChild(header);
         block.appendChild(body);
 
-        // ── 切换折叠 ──
-        const toggleCollapse = function () {
-            var wasClosed = body.classList.contains("closed");
-            if (wasClosed) {
-                // 展开
-                body.style.maxHeight = body.scrollHeight + "px";
-                body.classList.remove("closed");
-                toggle.classList.remove("collapsed");
-                header.classList.remove("collapsed");
-                header.setAttribute("aria-expanded", "true");
-            } else {
-                // 折叠
-                body.style.maxHeight = body.scrollHeight + "px";
-                void body.offsetHeight;
-                body.classList.add("closed");
-                body.style.maxHeight = "0";
-                toggle.classList.add("collapsed");
-                header.classList.add("collapsed");
-                header.setAttribute("aria-expanded", "false");
-            }
-        };
-
-        header.addEventListener("click", toggleCollapse);
-        collapseBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleCollapse(); });
+        // ── 点击切换折叠 ──
+        header.addEventListener("click", function () {
+            var isClosed = body.classList.toggle("closed");
+            toggle.classList.toggle("collapsed", isClosed);
+            header.classList.toggle("collapsed", isClosed);
+            header.setAttribute("aria-expanded", !isClosed);
+        });
 
         container.appendChild(block);
-
-        // ── 初始高度：先挂到 DOM 再读取 scrollHeight，否则值为 0 ──
-        void block.offsetHeight; // 强制回流确保布局已计算
-        body.style.maxHeight = body.scrollHeight + "px";
     }
 
     if (state.allLinks.length > 0) {
@@ -532,21 +552,6 @@ function renderResults(collections) {
             document.getElementById("opt-wm").checked;
     } else {
         document.getElementById("dl-type-chks").style.display = "none";
-    }
-}
-
-function updateActionButtons() {
-    var hasLinks = state.allLinks.length > 0;
-    var hasSucceeded = window._succeededActIds && window._succeededActIds.size > 0;
-    var shareBtn = document.getElementById("btn-share");
-    var clearBtn = document.getElementById("btn-clear");
-    if (shareBtn) {
-        shareBtn.classList.toggle("btn-available", !!hasSucceeded);
-        shareBtn.disabled = !hasSucceeded;
-    }
-    if (clearBtn) {
-        clearBtn.classList.toggle("ghost-available", !!hasLinks);
-        clearBtn.disabled = !hasLinks;
     }
 }
 
@@ -1045,13 +1050,25 @@ function setZipProgress(text) {
    Share link
    ============================================================ */
 function doShare() {
+    var raw = document.getElementById("act-id-input").value.trim();
+    var actIds = parseActIds(raw);
+
+    if (!actIds.length) {
+        showToast("❌ 请先输入至少一个 act_id", true);
+        return;
+    }
+
+    // 只保留查询成功的 act_id
     var succeeded = window._succeededActIds;
-    if (!succeeded || !succeeded.size) {
+    if (succeeded && succeeded.size > 0) {
+        actIds = actIds.filter(function (id) { return succeeded.has(id); });
+    }
+
+    if (!actIds.length) {
         showToast("❌ 没有查询成功的 act_id 可供分享", true);
         return;
     }
 
-    var actIds = Array.from(succeeded);
     var url = location.origin + location.pathname + "?act_id=" + actIds.join(",");
 
     if (navigator.clipboard && navigator.clipboard.writeText) {

@@ -3,6 +3,7 @@ import mimetypes
 import os
 import logging
 import hashlib
+import json
 from datetime import datetime
 from urllib.parse import urlparse
 import requests as req_lib
@@ -212,6 +213,65 @@ def get_lottery_params_by_act_id(act_id):
 
 
 # ====== Flask 路由 ======
+
+_BILI_FETCH_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://www.bilibili.com/",
+}
+
+
+def _fetch_suit_components(item_id: int) -> list:
+    """
+    调用 B 站装扮组件接口查询表情包等附加资源。
+    https://api.bilibili.com/x/garb/v2/user/suit/benefit?item_id={id}&part=emoji_package
+    返回: [{"type": "emoji", "name": ..., "images": {"static": ..., "gif": ...}}, ...]
+    """
+    try:
+        url = f"https://api.bilibili.com/x/garb/v2/user/suit/benefit?item_id={item_id}&part=emoji_package"
+        resp = req_lib.get(url, headers=_BILI_FETCH_HEADERS, timeout=10)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        if data.get("code") != 0 or not data.get("data"):
+            return []
+        d = data["data"]
+        items = []
+        # Emoji from properties.item_emoji_list
+        prop_emoji = d.get("properties", {}).get("item_emoji_list")
+        if prop_emoji:
+            try:
+                emoji_list = json.loads(prop_emoji) if isinstance(prop_emoji, str) else prop_emoji
+                for em in emoji_list:
+                    items.append({
+                        "type": "emoji",
+                        "name": em.get("name", ""),
+                        "images": {
+                            "static": em.get("image", ""),
+                            "gif": em.get("image_gif", ""),
+                            "webp": em.get("image_webp", ""),
+                        }
+                    })
+            except Exception:
+                pass
+        # Emoji from suit_items.emoji
+        suit_emoji = d.get("suit_items", {}).get("emoji", [])
+        for em in suit_emoji:
+            props = em.get("properties", {})
+            items.append({
+                "type": "emoji",
+                "name": em.get("name", ""),
+                "images": {
+                    "static": props.get("image", ""),
+                    "gif": props.get("image_gif", ""),
+                    "webp": props.get("image_webp", ""),
+                }
+            })
+        return items
+    except Exception:
+        LOGGER.warning(f"获取表情包失败: item_id={item_id}", exc_info=True)
+        return []
+
 
 @app.route("/")
 def index():
