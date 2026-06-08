@@ -13,11 +13,14 @@ const state = {
    ============================================================ */
 function parseActIds(raw) {
     if (!raw || !raw.trim()) return [];
-    // Split by comma, trim whitespace, filter empties, keep only digits
-    const ids = raw.split(',')
+    // 统一分隔符：中文逗号、顿号、分号、空格、换行 -> 英文逗号
+    const normalized = raw
+        .replace(/[；;]\s*|[，、]/g, ',')
+        .replace(/[\s\n\r]+/g, ',')
+        .replace(/,+/g, ',');
+    const ids = normalized.split(',')
         .map(function (s) { return s.trim(); })
         .filter(function (s) { return s && /^\d+$/.test(s) && s !== '0'; });
-    // Deduplicate preserving order
     var seen = new Set();
     return ids.filter(function (id) {
         if (seen.has(id)) return false;
@@ -460,6 +463,7 @@ function renderResults(collections) {
         header.addEventListener("click", function () {
             var isClosed = body.classList.toggle("closed");
             toggle.classList.toggle("collapsed", isClosed);
+            header.classList.toggle("collapsed", isClosed);
             header.setAttribute("aria-expanded", !isClosed);
         });
 
@@ -626,6 +630,8 @@ async function startFetch() {
         }
         if (actSuccess > 0) {
             state.successActIds++;
+            if (!window._succeededActIds) window._succeededActIds = new Set();
+            window._succeededActIds.add(actId);
         } else if (state.failActIds === 0 || state.failActIds < totalSteps) {
             // If at least one lottery group was attempted but all failed
             // (the fail counter was already incremented for get_params failures; for collection failures, we check actSuccess)
@@ -958,6 +964,7 @@ function clearAll() {
     state.failActIds = 0;
     window._allCollections = [];
     window._queriedActIds = new Set();
+    window._succeededActIds = new Set();
     setZipProgress('');
 }
 function setZipProgress(text) {
@@ -977,6 +984,17 @@ function doShare() {
 
     if (!actIds.length) {
         showToast("❌ 请先输入至少一个 act_id", true);
+        return;
+    }
+
+    // 只保留查询成功的 act_id
+    var succeeded = window._succeededActIds;
+    if (succeeded && succeeded.size > 0) {
+        actIds = actIds.filter(function (id) { return succeeded.has(id); });
+    }
+
+    if (!actIds.length) {
+        showToast("❌ 没有查询成功的 act_id 可供分享", true);
         return;
     }
 

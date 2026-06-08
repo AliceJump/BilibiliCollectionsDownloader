@@ -583,6 +583,10 @@ footer {
     color: var(--sub);
 }
 
+footer a:hover {
+    color: var(--pink);
+}
+
 /* ── Share button ── */
 .btn-share {
     background: #f0f0f0;
@@ -597,22 +601,48 @@ footer {
 /* ── Collapse ── */
 .coll-header {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
     cursor: pointer;
     user-select: none;
+    padding: 8px 0 4px;
+    transition: flex-direction 0.25s, gap 0.25s, padding 0.25s;
+}
+
+.coll-header.collapsed {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
 }
 
 .coll-toggle {
     font-size: 12px;
     color: var(--sub);
-    transition: transform 0.2s;
+    transition: transform 0.25s;
     flex-shrink: 0;
     line-height: 1;
 }
 
 .coll-toggle.collapsed {
     transform: rotate(-90deg);
+}
+
+.coll-header .coll-name {
+    transition: font-size 0.25s;
+}
+
+.coll-header.collapsed .coll-name {
+    font-size: 16px;
+}
+
+.coll-header .coll-sub {
+    font-size: 11px;
+    line-height: 1;
+    color: var(--sub);
+    margin-bottom: 0;
+    transition: font-size 0.25s;
 }
 
 .coll-body {
