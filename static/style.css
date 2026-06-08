@@ -655,6 +655,31 @@ footer a:hover {
     max-height: 0;
 }
 
+/* ── 右上角 B 站跳转链接 ── */
+.coll-block {
+    position: relative;
+}
+
+.coll-link {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 22px;
+    color: #999;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s, transform 0.15s;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+
+.coll-link:hover {
+    color: var(--pink);
+    transform: scale(1.15);
+    background: var(--pink-light);
+}
+
 /* ── Summary stats ── */
 .summary-stats {
     display: flex;

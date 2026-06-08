@@ -337,6 +337,16 @@ function renderResults(collections) {
         header.appendChild(nameSpan);
         header.appendChild(subSpan);
 
+        // ── 右上 B 站跳转链接 ──
+        var link = document.createElement("a");
+        link.className = "coll-link";
+        link.href = "https://www.bilibili.com/h5/mall/digital-card/home?act_id=" + coll.actId;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.title = "在 B 站打开 " + coll.name;
+        link.textContent = "🔗";
+        block.appendChild(link);
+
         // ── Body (可折叠) ──
         const body = document.createElement("div");
         body.className = "coll-body";
@@ -620,6 +630,7 @@ async function startFetch() {
                     addAlert("alert-err", "❌ 收藏集获取失败 (act_id=" + escHtml(p.act_id) + "): " + escHtml(String(fetchJson.message || fetchJson.code)));
                 } else {
                     var result = parseData(fetchJson.data || {}, opts);
+                    result.actId = p.act_id;
                     collections.push(result);
                     actSuccess++;
                     addAlert("alert-ok", "✅ " + escHtml(result.name) + " — " + result.cards.length + " 个卡牌 (act_id=" + escHtml(p.act_id) + ")");
