@@ -1,14 +1,16 @@
-from flask import Response
 import mimetypes
 import os
 import logging
 import hashlib
 import json
+import time
+import random
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
+
 import requests as req_lib
-from flask import Flask, jsonify, request, send_file
-import re
+from flask import Flask, Response, jsonify, request, send_file
+
 from bilibili_api import sync, ResponseCodeException, NetworkException
 from bilibili_api.garb import DLC
 from bilibili_api.utils.network import Api
@@ -19,10 +21,139 @@ app = Flask(__name__)
 _GARB_API = get_api("garb")
 APP_NAME = "biliCollectionDownloader"
 
+# ============================================================
+# B站 API 安全请求层（防 412 风控）
+# ============================================================
+
+BILI_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
+    "Referer": "https://www.bilibili.com/",
+    "Origin": "https://www.bilibili.com",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+    "Connection": "keep-alive",
+}
+
+BILI_COOKIES = {
+    "SESSDATA": os.environ.get("BILI_SESSDATA", ""),
+    "buvid3": os.environ.get("BILI_BUVID3", ""),
+    "b_nut": os.environ.get("BILI_BNUT", ""),
+}
+
+# 如果没有环境变量则尝试从文件读取
+if not BILI_COOKIES["SESSDATA"]:
+    cookie_file = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "configs",
+    ".bili_cookies.json"
+)
+    if os.path.exists(cookie_file):
+        try:
+            with open(cookie_file, "r", encoding="utf-8") as f:
+                file_cookies = json.load(f)
+                BILI_COOKIES.update({k: v for k, v in file_cookies.items() if v})
+        except Exception:
+            pass
+
+_bili_session = req_lib.Session()
+_bili_session.headers.update(BILI_HEADERS)
+
+# 请求间隔控制（防止触发风控）
+_last_request_time = 0.0
+_MIN_REQUEST_INTERVAL = 0.8  # 最短 800ms 一个请求
+
+
+def _bili_rate_limit():
+    """请求限速：确保请求间隔不小于 _MIN_REQUEST_INTERVAL 秒"""
+    global _last_request_time
+    elapsed = time.time() - _last_request_time
+    if elapsed < _MIN_REQUEST_INTERVAL:
+        sleep_time = _MIN_REQUEST_INTERVAL - elapsed + random.uniform(0, 0.3)
+        time.sleep(sleep_time)
+    _last_request_time = time.time()
+
+
+def _is_412_response(resp):
+    """检测响应是否为 B站 412 风控页面"""
+    if resp.status_code == 412:
+        return True
+    text_head = resp.text[:200].lower()
+    if resp.status_code == 200 and ("出错啦" in text_head or "安全风控" in text_head):
+        return True
+    return False
+
+
+def bili_request(url, **kwargs):
+    """
+    带 Cookie + 完整请求头 + 限速 + 重试 的 B站 API 请求。
+    返回: (response_json | None, error_message | None)
+    """
+    _bili_rate_limit()
+
+    timeout = kwargs.pop("timeout", 15)
+    max_retry = kwargs.pop("max_retry", 3)
+    cookies = kwargs.pop("cookies", None) or BILI_COOKIES
+
+    for attempt in range(max_retry):
+        try:
+            resp = _bili_session.get(
+                url,
+                cookies=cookies,
+                timeout=timeout,
+                **kwargs,
+            )
+
+            if _is_412_response(resp):
+                LOGGER.warning(f"[retry {attempt + 1}/{max_retry}] 触发 B站 412 风控: {url}")
+                if attempt < max_retry - 1:
+                    time.sleep(1.5 + attempt * 1.0)
+                continue
+
+            if resp.status_code != 200:
+                LOGGER.warning(
+                    f"[retry {attempt + 1}/{max_retry}] HTTP {resp.status_code}: {url}"
+                )
+                if attempt < max_retry - 1:
+                    time.sleep(0.5)
+                continue
+
+            # 检查是否返回了 HTML（某些情况 200 但返回风控页）
+            ct = (resp.headers.get("Content-Type", "") or "").lower()
+            if "html" in ct and "json" not in ct:
+                LOGGER.warning(
+                    f"[retry {attempt + 1}/{max_retry}] 返回 HTML 页面，疑似风控: {url}"
+                )
+                if attempt < max_retry - 1:
+                    time.sleep(1.0 + attempt * 0.5)
+                continue
+
+            return resp.json(), None
+
+        except req_lib.exceptions.Timeout:
+            LOGGER.warning(f"[retry {attempt + 1}/{max_retry}] 请求超时: {url}")
+            if attempt < max_retry - 1:
+                time.sleep(1.0)
+        except req_lib.exceptions.ConnectionError as e:
+            LOGGER.warning(f"[retry {attempt + 1}/{max_retry}] 连接错误: {e}")
+            if attempt < max_retry - 1:
+                time.sleep(1.0)
+        except Exception as e:
+            LOGGER.error(f"请求失败 (不可重试): {url} | {e}")
+            return None, str(e)
+
+    return None, f"请求失败，已重试 {max_retry} 次，可能触发了 B站 风控(412)"
+
+
+def safe_request(func, fallback_msg="请求失败"):
+    """统一异常包装器，防止 Flask 500"""
+    try:
+        return func()
+    except Exception as e:
+        LOGGER.error(f"[safe_request] {fallback_msg}: {e}", exc_info=True)
+        return None
+
 
 # ====== 图片代理接口 ======
-
-from urllib.parse import urlparse, unquote
 
 @app.route("/api/proxy_img")
 def proxy_img():
@@ -178,6 +309,8 @@ def get_lottery_params_by_act_id(act_id):
       - 失败: (None, "错误说明")
     """
     try:
+        # 限速：bilibili_api 内部也有自己的网络层，加延迟减少 412
+        _bili_rate_limit()
         LOGGER.info(f"正在查询收藏集信息: act_id={act_id}")
         dlc = DLC(int(act_id))
         info = sync(dlc.get_info())
@@ -228,8 +361,9 @@ def _fetch_suit_components(item_id: int) -> list:
     返回: [{"type": "emoji", "name": ..., "images": {"static": ..., "gif": ...}}, ...]
     """
     try:
+        _bili_rate_limit()
         url = f"https://api.bilibili.com/x/garb/v2/user/suit/benefit?item_id={item_id}&part=emoji_package"
-        resp = req_lib.get(url, headers=_BILI_FETCH_HEADERS, timeout=10)
+        resp = _bili_session.get(url, timeout=10)
         if resp.status_code != 200:
             return []
         data = resp.json()
@@ -293,6 +427,8 @@ def fetch():
         return jsonify({"code": -1, "message": "act_id 和 lottery_id 必须为数字"}), 400
 
     try:
+        # 限速
+        _bili_rate_limit()
         LOGGER.info(f"通过 bilibili-api 获取收藏集详情: act_id={act_id}, lottery_id={lottery_id}")
         api = _GARB_API["dlc"]["detail"]
         data = sync(
@@ -345,6 +481,58 @@ _RESOLVE_HEADERS = {
                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Referer": "https://www.bilibili.com/",
 }
+
+
+@app.route("/api/check_act_id")
+def check_act_id():
+    """
+    快速检查单个 act_id 是否存在。
+    使用 requests.Session + Cookie + 完整请求头 + 重试机制，避免 412 风控。
+    参数:
+      act_id — 活动 ID（必填）
+    返回:
+      {"code": 0, "data": {"act_id": "...", "exists": true/false, "name": "..."}}
+      或 {"code": -1, "message": "..."}
+    """
+    act_id = request.args.get("act_id", "").strip()
+    LOGGER.info(f"/api/check_act_id 收到请求: act_id={act_id!r}")
+
+    if not act_id or not act_id.isdigit():
+        return jsonify({"code": -1, "message": "act_id 必须为数字"}), 400
+
+    # 使用 bilibili_api 的 DLC.get_info()（已内置必要请求头），配合限速防风控
+    try:
+        _bili_rate_limit()
+        dlc = DLC(int(act_id))
+        info = sync(dlc.get_info())
+        lottery_list = info.get("lottery_list") or []
+        name = info.get("name") or info.get("title") or ""
+        exists = len(lottery_list) > 0
+        LOGGER.info(f"检查 act_id={act_id}: exists={exists}, name={name!r}")
+        return jsonify({
+            "code": 0,
+            "data": {
+                "act_id": act_id,
+                "exists": exists,
+                "name": name if exists else "",
+            }
+        })
+    except ResponseCodeException as e:
+        LOGGER.warning(f"act_id={act_id} 不存在: code={e.code}, msg={e.msg}")
+        return jsonify({
+            "code": 0,
+            "data": {"act_id": act_id, "exists": False, "name": ""}
+        })
+    except NetworkException as e:
+        err_str = str(e)
+        if "412" in err_str or "状态码：412" in err_str:
+            LOGGER.error(f"B站风控拦截 (act_id={act_id}): 触发了 412 安全策略")
+            return jsonify({"code": -1, "message": "B站风控拦截(412)，请求过于频繁，请稍后重试"}), 412
+        LOGGER.error(f"网络请求失败 (act_id={act_id}): {e}")
+        return jsonify({"code": -1, "message": "请求超时或网络错误"}), 504
+    except Exception as e:
+        LOGGER.error(f"检查 act_id={act_id} 失败: {e}", exc_info=True)
+        return jsonify({"code": -1, "message": "查询时发生错误"}), 502
 
 
 @app.route("/api/resolve_url")

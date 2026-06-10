@@ -79,6 +79,35 @@
                 <div class="qr-thumbs" id="qr-thumbs"></div>
             </div>
 
+            <!-- ─── Batch scan ─── -->
+            <div class="scan-section">
+                <div class="scan-title">🔎 批量扫描 act_id</div>
+                <div class="scan-row">
+                    <span class="scan-label">范围：</span>
+                    <input type="number" id="scan-start" class="scan-input" placeholder="起始 act_id" min="1" />
+                    <span class="scan-sep">—</span>
+                    <input type="number" id="scan-end" class="scan-input" placeholder="结束 act_id" min="1" />
+                    <span class="scan-label" style="margin-left:8px;font-size:11px;color:var(--sub);">间隔 0.5~1.5s</span>
+                    <button class="btn btn-primary" id="btn-scan" onclick="startBatchScan()">
+                        🚀 开始扫描
+                    </button>
+                    <button class="btn btn-ghost" id="btn-scan-stop" onclick="stopBatchScan()"
+                        style="display:none;font-size:12px;padding:5px 12px;">
+                        ⏹ 停止
+                    </button>
+                </div>
+                <div class="scan-hint" id="scan-hint">输入起始和结束 act_id，批量检查哪些 act_id 存在有效的收藏集。</div>
+                <!-- Scan progress -->
+                <div class="scan-progress" id="scan-progress" style="display:none;">
+                    <div class="scan-prog-bar-bg">
+                        <div class="scan-prog-bar" id="scan-prog-bar"></div>
+                    </div>
+                    <div class="scan-prog-text" id="scan-prog-text">准备中…</div>
+                </div>
+                <!-- Scan results -->
+                <div class="scan-results" id="scan-results"></div>
+            </div>
+
             <!-- Options -->
             <div class="opts-row">
                 <span class="opts-label">下载内容：</span>

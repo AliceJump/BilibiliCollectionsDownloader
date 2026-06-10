@@ -1111,6 +1111,228 @@ if (document.readyState === "loading") {
     autoStartFromUrl();
 }
 
+/* ============================================================
+   Batch Scan: check a range of act_ids for existence
+   — 顺序扫描 + 随机延迟，避免触发 B 站 412 风控
+   ============================================================ */
+let batchScanAbort = false;
+
+/** 随机延迟 ms */
+function randomDelay(min, max) {
+    return new Promise(function (resolve) {
+        setTimeout(resolve, min + Math.random() * (max - min));
+    });
+}
+
+async function startBatchScan() {
+    var startEl = document.getElementById("scan-start");
+    var endEl = document.getElementById("scan-end");
+    var btn = document.getElementById("btn-scan");
+    var resultsEl = document.getElementById("scan-results");
+    var progressEl = document.getElementById("scan-progress");
+    var progBar = document.getElementById("scan-prog-bar");
+    var progText = document.getElementById("scan-prog-text");
+    var hintEl = document.getElementById("scan-hint");
+
+    var start = parseInt(startEl.value, 10);
+    var end = parseInt(endEl.value, 10);
+
+    if (isNaN(start) || isNaN(end) || start < 1 || end < 1 || end < start) {
+        hintEl.textContent = "⚠️ 请输入有效的 act_id 范围（起始 ≤ 结束，且均为正整数）。";
+        hintEl.style.color = "#ff4d4f";
+        return;
+    }
+    hintEl.style.color = "";
+    hintEl.textContent = "正在扫描 " + start + " ~ " + end + "，共 " + (end - start + 1) + " 个 act_id…";
+
+    batchScanAbort = false;
+    btn.disabled = true;
+    btn.textContent = "⏳ 扫描中…";
+    btn.style.display = "none";
+    document.getElementById("btn-scan-stop").style.display = "inline-flex";
+    progressEl.style.display = "block";
+    resultsEl.innerHTML = "";
+
+    var ids = [];
+    for (var i = start; i <= end; i++) {
+        ids.push(i);
+    }
+    var total = ids.length;
+    var found = [];
+    var notFound = [];
+    var errors = [];
+
+    // ── 顺序扫描，每两个请求之间随机延迟 0.5~1.5 秒 ──
+    for (var idx = 0; idx < total; idx++) {
+        if (batchScanAbort) break;
+
+        var actId = ids[idx];
+
+        // 请求之间加随机延迟（第一个不等）
+        if (idx > 0) {
+            await randomDelay(500, 1500);
+        }
+
+        // 带指数退避的重试（最多 3 次）
+        var success = false;
+        for (var retry = 0; retry < 3 && !success; retry++) {
+            if (batchScanAbort) break;
+            if (retry > 0) {
+                await randomDelay(2000 * retry, 2000 * retry + 1000);
+            }
+            try {
+                var res = await fetch(
+                    API_BASE + "/api/check_act_id?act_id=" + encodeURIComponent(actId)
+                );
+                var json = await res.json();
+                if (json.code === 0 && json.data) {
+                    if (json.data.exists) {
+                        found.push({ act_id: actId, name: json.data.name });
+                    } else {
+                        notFound.push(actId);
+                    }
+                    success = true;
+                } else if (res.status >= 500) {
+                    // 服务端错误，可以重试
+                    continue;
+                } else {
+                    errors.push(actId);
+                    success = true; // 标记为已处理
+                }
+            } catch (err) {
+                if (err.name === "AbortError") { batchScanAbort = true; break; }
+                // 网络错误可能是 412，重试
+                continue;
+            }
+        }
+        if (!success) {
+            errors.push(actId);
+        }
+
+        // 更新进度
+        var pct = Math.round(((idx + 1) / total) * 100);
+        progBar.style.width = pct + "%";
+        progText.textContent = "已检查 " + (idx + 1) + "/" + total +
+            "，存在 " + found.length + " 个，不存在 " + notFound.length + " 个" +
+            (errors.length ? "，错误 " + errors.length + " 个" : "");
+
+        // 每 10 个或最后更新一次界面
+        if ((idx + 1) % 10 === 0 || idx + 1 === total) {
+            renderScanResults(resultsEl, found, notFound, errors, total);
+        }
+    }
+
+    // Final render
+    renderScanResults(resultsEl, found, notFound, errors, total);
+
+    btn.disabled = false;
+    btn.textContent = "🚀 开始扫描";
+    btn.style.display = "";
+    document.getElementById("btn-scan-stop").style.display = "none";
+    hintEl.textContent = "扫描完成！共 " + total + " 个 act_id，存在 " + found.length + " 个。点击绿色标签可填入输入框并查询。";
+
+    // If some act_ids exist, offer to query them
+    if (found.length > 0) {
+        var actIdList = found.map(function (f) { return f.act_id; }).join(", ");
+        var fillBtn = document.createElement("div");
+        fillBtn.style.cssText = "margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;";
+        fillBtn.innerHTML =
+            '<button class="btn btn-primary" onclick="fillFoundActIds()" style="font-size:12px;padding:5px 14px;">📋 查询找到的 ' + found.length + ' 个 act_id</button>' +
+            '<span style="font-size:11px;color:var(--sub);">将已找到的 act_id 填入输入框并获取下载链接</span>';
+        resultsEl.appendChild(fillBtn);
+        // Store found ids for fillFoundActIds
+        window._batchFoundIds = found.map(function (f) { return f.act_id; });
+    }
+}
+
+function stopBatchScan() {
+    batchScanAbort = true;
+    var btn = document.getElementById("btn-scan");
+    var stopBtn = document.getElementById("btn-scan-stop");
+    var hintEl = document.getElementById("scan-hint");
+    btn.disabled = false;
+    btn.textContent = "🚀 开始扫描";
+    btn.style.display = "";
+    stopBtn.style.display = "none";
+    hintEl.textContent = "⏹ 已手动停止扫描。";
+}
+
+function renderScanResults(container, found, notFound, errors, total) {
+    container.innerHTML = "";
+
+    // Stats
+    var stats = document.createElement("div");
+    stats.className = "scan-stats";
+    stats.innerHTML =
+        '<span class="scan-stat-item scan-stat-total">📊 总计 <span class="scan-stat-num">' + total + '</span></span>' +
+        '<span class="scan-stat-item scan-stat-ok">✅ 存在 <span class="scan-stat-num">' + found.length + '</span></span>' +
+        '<span class="scan-stat-item scan-stat-fail">❌ 不存在 <span class="scan-stat-num">' + notFound.length + '</span></span>' +
+        (errors.length ? '<span class="scan-stat-item" style="color:#fa8c16;">⚠️ 错误 <span class="scan-stat-num" style="color:#fa8c16;">' + errors.length + '</span></span>' : "");
+    container.appendChild(stats);
+
+    // Only show badges if total is reasonable
+    if (total > 500) {
+        // Too many to show individually, show summary only
+        return;
+    }
+
+    // Found badges (green)
+    found.sort(function (a, b) { return a.act_id - b.act_id; });
+    for (var i = 0; i < found.length; i++) {
+        var f = found[i];
+        var badge = document.createElement("span");
+        badge.className = "scan-badge scan-badge-ok act-id-clickable";
+        badge.title = f.name || ("act_id=" + f.act_id);
+        badge.textContent = f.act_id;
+        badge.onclick = (function (id, name) {
+            return function () {
+                var input = document.getElementById("act-id-input");
+                var existing = input.value.trim();
+                var ids = existing ? parseActIds(existing) : [];
+                if (ids.indexOf(String(id)) === -1) {
+                    ids.push(String(id));
+                }
+                input.value = ids.join(", ");
+                input.focus();
+                showToast("✅ 已添加 act_id=" + id + (name ? "（" + name + "）" : ""), false);
+            };
+        })(f.act_id, f.name);
+        container.appendChild(badge);
+    }
+
+    // Separator if both found and not found
+    if (found.length > 0 && notFound.length > 0) {
+        var sep = document.createElement("span");
+        sep.style.cssText = "font-size:10px;color:#ccc;padding:0 2px;";
+        sep.textContent = "|";
+        container.appendChild(sep);
+    }
+
+    // Not found badges (red) - only show first 50 if too many
+    notFound.sort(function (a, b) { return a - b; });
+    var showNotFound = notFound.slice(0, 50);
+    for (var j = 0; j < showNotFound.length; j++) {
+        var badge2 = document.createElement("span");
+        badge2.className = "scan-badge scan-badge-fail";
+        badge2.textContent = showNotFound[j];
+        container.appendChild(badge2);
+    }
+    if (notFound.length > 50) {
+        var more = document.createElement("span");
+        more.className = "scan-badge scan-badge-skip";
+        more.textContent = "…还有 " + (notFound.length - 50) + " 个";
+        container.appendChild(more);
+    }
+}
+
+function fillFoundActIds() {
+    var ids = window._batchFoundIds;
+    if (!ids || !ids.length) return;
+    document.getElementById("act-id-input").value = ids.join(", ");
+    showToast("✅ 已填入 " + ids.length + " 个 act_id", false);
+    startFetch();
+}
+
 // ── 回到顶部 ──
 window.addEventListener("scroll", function () {
     var el = document.getElementById("back-top");

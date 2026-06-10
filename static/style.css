@@ -216,6 +216,180 @@ header .sub {
     border-color: #ff4d4f;
 }
 
+/* ── Batch Scan ── */
+.scan-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.scan-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.scan-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.scan-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.scan-input {
+    width: 100px;
+    padding: 7px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text);
+    -moz-appearance: textfield;
+}
+
+.scan-input::-webkit-outer-spin-button,
+.scan-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.scan-input:focus {
+    outline: none;
+    border-color: var(--pink);
+}
+
+.scan-input-sm {
+    width: 60px;
+}
+
+.scan-sep {
+    font-size: 14px;
+    color: var(--sub);
+}
+
+.scan-hint {
+    font-size: 11px;
+    color: var(--sub);
+    margin-top: 6px;
+}
+
+/* Scan progress */
+.scan-progress {
+    margin-top: 12px;
+}
+
+.scan-prog-bar-bg {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.scan-prog-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #52c41a, #73d13d);
+    border-radius: 99px;
+    width: 0;
+    transition: width 0.3s;
+}
+
+.scan-prog-text {
+    font-size: 11px;
+    color: var(--sub);
+}
+
+/* Scan results */
+.scan-results {
+    margin-top: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.scan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    text-decoration: none;
+}
+
+.scan-badge:hover {
+    opacity: 0.8;
+}
+
+.scan-badge-ok {
+    background: #f6ffed;
+    color: #135200;
+    border: 1px solid #b7eb8f;
+}
+
+.scan-badge-fail {
+    background: #fff2f0;
+    color: #a8071a;
+    border: 1px solid #ffccc7;
+}
+
+.scan-badge-skip {
+    background: #f5f5f5;
+    color: #999;
+    border: 1px solid #e8e8e8;
+}
+
+.scan-badge.act-id-clickable {
+    cursor: pointer;
+}
+
+.scan-badge.act-id-clickable:hover {
+    opacity: 0.85;
+    transform: scale(1.05);
+}
+
+.scan-badge.selected {
+    box-shadow: 0 0 0 2px var(--pink);
+}
+
+/* Scan summary stats */
+.scan-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.scan-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.scan-stat-num {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.scan-stat-ok .scan-stat-num { color: #52c41a; }
+.scan-stat-fail .scan-stat-num { color: #ff4d4f; }
+.scan-stat-total .scan-stat-num { color: var(--text); }
+
 /* ── Options ── */
 .opts-row {
     display: flex;
