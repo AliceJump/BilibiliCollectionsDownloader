@@ -15,5 +15,9 @@ if ROOT_DIR not in sys.path:
 from server import app
 
 if __name__ == "__main__":
-    print("本地网页版已启动：http://127.0.0.1:5000/")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    import socket
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    print(f"本地网页版已启动：http://127.0.0.1:5000/")
+    print(f"局域网访问：http://{local_ip}:5000/  （请确保防火墙已放行 5000 端口）")
+    app.run(host="0.0.0.0", port=5000, debug=False)

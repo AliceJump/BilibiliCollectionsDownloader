@@ -9,6 +9,19 @@ const state = {
 };
 
 /* ============================================================
+   Pagination state
+   ============================================================ */
+const PAGE_CARD_LIMIT = 200; // 每页卡牌数量阈值
+
+// page 数据结构：{ collections: [], cardCount: 0, fetched: false }
+// 初始化时自动创建第 0 页
+window._pages = [{ collections: [], cardCount: 0 }];
+window._currentPageIdx = 0;
+window._pendingActIds = [];   // 尚未取回的 act_id（下一页继续）
+window._pendingOpts = null;   // 当前批次的 opts
+window._isPageFetching = false; // 是否正在加载中
+
+/* ============================================================
    Utility: parse comma-separated act_id list
    ============================================================ */
 function parseActIds(raw) {
@@ -572,7 +585,314 @@ function isAppMode() {
 }
 
 /* ============================================================
-   Main: start fetch (supports multiple act_ids)
+   Pagination helpers
+   ============================================================ */
+
+function getCurrentPageData() {
+    return window._pages[window._currentPageIdx] || { collections: [], cardCount: 0 };
+}
+
+function getTotalPages() {
+    return window._pages.length;
+}
+
+function updatePaginationUI() {
+    var pagEl = document.getElementById("pagination");
+    var infoEl = document.getElementById("page-info");
+    var prevBtn = document.getElementById("btn-page-prev");
+    var nextBtn = document.getElementById("btn-page-next");
+
+    var curIdx = window._currentPageIdx;
+    var totalPages = getTotalPages();
+    var curPage = getCurrentPageData();
+    var allDone = window._pendingActIds.length === 0 && !window._isPageFetching;
+    var hasPending = window._pendingActIds.length > 0;
+
+    if (totalPages <= 1 && allDone) {
+        pagEl.style.display = "none";
+        return;
+    }
+
+    pagEl.style.display = "flex";
+    infoEl.textContent = "第 " + (curIdx + 1) + " / " + totalPages + " 页 · " + curPage.cardCount + " 张";
+
+    prevBtn.disabled = curIdx === 0;
+
+    if (allDone && curIdx === totalPages - 1) {
+        nextBtn.disabled = true;
+        nextBtn.textContent = "完毕";
+    } else if (window._isPageFetching) {
+        nextBtn.disabled = true;
+        nextBtn.textContent = "加载中…";
+    } else if (hasPending) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = "下一页 ▶";
+    } else {
+        nextBtn.disabled = false;
+        nextBtn.textContent = "下一页 ▶";
+    }
+}
+
+/* ============================================================
+   Load progress line (compact, single line)
+   ============================================================ */
+function updateLoadProgress() {
+    var el = document.getElementById("load-progress");
+    if (!el) {
+        el = document.createElement("div");
+        el.id = "load-progress";
+        el.className = "load-progress";
+        var alerts = document.getElementById("alerts");
+        alerts.insertBefore(el, alerts.firstChild);
+    }
+    var totalCards = 0;
+    var totalColls = 0;
+    for (var pi = 0; pi < window._pages.length; pi++) {
+        var pg = window._pages[pi];
+        totalCards += pg.cardCount;
+        totalColls += pg.collections.length;
+    }
+    var pending = window._pendingActIds ? window._pendingActIds.length : 0;
+    var text = "📦 " + totalColls + " 合集 · " + totalCards + " 张";
+    if (pending > 0) {
+        text += " · 剩余 " + pending;
+    }
+    el.textContent = text;
+}
+
+function renderCurrentPage() {
+    var container = document.getElementById("results-body");
+    container.innerHTML = "";
+    state.allLinks = [];
+
+    var pageData = getCurrentPageData();
+    if (!pageData.collections.length) {
+        container.innerHTML =
+            '<div class="empty"><div class="icon">😕</div><p>此页暂无内容</p></div>';
+        updatePaginationUI();
+        updateActionButtons();
+        return;
+    }
+
+    // 渲染当前页所有收藏集
+    for (var ci = 0; ci < pageData.collections.length; ci++) {
+        appendSingleBlock(container, pageData.collections[ci]);
+    }
+
+    updatePaginationUI();
+    updateActionButtons();
+}
+
+async function nextPage() {
+    var curIdx = window._currentPageIdx;
+    var totalPages = getTotalPages();
+
+    // 翻到下一页
+    if (curIdx < totalPages - 1) {
+        window._currentPageIdx++;
+        renderCurrentPage();
+        // 如果还有待加载且未在加载中，在新页开始加载
+        if (window._pendingActIds.length > 0 && !window._isPageFetching) {
+            continueFetch();
+        }
+    }
+}
+
+function prevPage() {
+    if (window._currentPageIdx > 0) {
+        window._currentPageIdx--;
+        renderCurrentPage();
+    }
+}
+
+/* ============================================================
+   Append a single collection block to container
+   ============================================================ */
+function appendSingleBlock(container, coll) {
+    if (!coll || !coll.cards || !coll.cards.length) return;
+
+    const block = document.createElement("div");
+    block.className = "coll-block card";
+
+    // ── Header ──
+    const header = document.createElement("div");
+    header.className = "coll-header";
+    header.setAttribute("role", "button");
+    header.setAttribute("tabindex", "0");
+    header.setAttribute("aria-expanded", "true");
+
+    const toggle = document.createElement("span");
+    toggle.className = "coll-toggle";
+    toggle.textContent = "▼";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "coll-name";
+    nameSpan.textContent = coll.name;
+
+    const subSpan = document.createElement("span");
+    subSpan.className = "coll-sub";
+    subSpan.textContent = "共 " + coll.cards.length + " 个卡牌";
+
+    header.appendChild(toggle);
+    header.appendChild(nameSpan);
+    header.appendChild(subSpan);
+
+    // ── B站跳转链接 ──
+    var link = document.createElement("a");
+    link.className = "coll-link";
+    link.href = "https://www.bilibili.com/h5/mall/digital-card/home?act_id=" + coll.actId;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.title = "在 B 站打开 " + coll.name;
+    link.textContent = "🔗";
+    block.appendChild(link);
+
+    // ── Body ──
+    const body = document.createElement("div");
+    body.className = "coll-body";
+
+    const list = document.createElement("div");
+    list.className = "dl-list";
+
+    const safeName = (s) => s.replace(/[<>:"/\\|?*\s]/g, "_");
+
+    for (const card of coll.cards) {
+        const item = document.createElement("div");
+        item.className = "dl-item";
+
+        const top = document.createElement("div");
+        top.className = "dl-item-top";
+
+        const nm = document.createElement("div");
+        nm.className = "dl-item-name";
+        nm.title = card.card_name;
+        nm.textContent = card.card_name;
+        top.appendChild(nm);
+
+        const tabs = document.createElement("div");
+        tabs.className = "dl-tabs";
+        const types = [];
+        for (const dl of card.links) {
+            if (dl.cls === "dl-a-img" && !types.includes("img")) types.push("img");
+            if (dl.cls === "dl-a-vid" && !types.includes("vid")) types.push("vid");
+            if (dl.cls === "dl-a-wm" && !types.includes("wm")) types.push("wm");
+        }
+        const tabNames = { img: "🖼️", vid: "🎬", wm: "💧" };
+        let activeType = types[0] || "img";
+        types.forEach((type) => {
+            const tab = document.createElement("div");
+            tab.className = "dl-tab" + (type === activeType ? " active" : "");
+            tab.textContent = tabNames[type] || type;
+            tab.dataset.type = type;
+            tab.onclick = () => {
+                activeType = type;
+                [...tabs.children].forEach((t) =>
+                    t.classList.toggle("active", t.dataset.type === type)
+                );
+                renderPreview();
+            };
+            tabs.appendChild(tab);
+        });
+        top.appendChild(tabs);
+        item.appendChild(top);
+
+        const preview = document.createElement("div");
+        preview.className = "dl-preview";
+        function renderPreview() {
+            preview.innerHTML = "";
+            let hasContent = false;
+            const seen = new Set();
+            for (const dl of card.links) {
+                const key = (dl.cls || "") + "|" + (dl.url || "");
+                if (seen.has(key)) continue;
+                seen.add(key);
+                if (activeType === "img" && dl.cls === "dl-a-img") {
+                    const img = document.createElement("img");
+                    img.src = `${API_BASE}/api/proxy_img?url=${encodeURIComponent(dl.url)}`;
+                    img.alt = "图片预览";
+                    img.loading = "lazy";
+                    img.referrerPolicy = "no-referrer";
+                    preview.appendChild(img);
+                    hasContent = true;
+                } else if (activeType === "vid" && dl.cls === "dl-a-vid") {
+                    const video = document.createElement("video");
+                    video.src = dl.url;
+                    video.controls = true;
+                    video.preload = "none";
+                    preview.appendChild(video);
+                    hasContent = true;
+                } else if (activeType === "wm" && dl.cls === "dl-a-wm") {
+                    const video = document.createElement("video");
+                    video.src = dl.url;
+                    video.controls = true;
+                    video.preload = "none";
+                    preview.appendChild(video);
+                    hasContent = true;
+                }
+            }
+            if (!hasContent) {
+                preview.innerHTML =
+                    '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
+            }
+        }
+        renderPreview();
+        item.appendChild(preview);
+
+        for (const dl of card.links) {
+            let filename = safeName(card.card_name);
+            if (dl.cls === "dl-a-wm") {
+                filename += "-水印";
+            }
+            filename += "." + dl.ext;
+            state.allLinks.push({
+                url: dl.url,
+                filename: filename,
+                type: dl.cls,
+                collectionFolder: safeName(coll.name || "未知合集"),
+            });
+        }
+        list.appendChild(item);
+    }
+
+    body.appendChild(list);
+
+    var collapseBtn = document.createElement("div");
+    collapseBtn.className = "coll-bottom-btn";
+    collapseBtn.textContent = "▲ 收起";
+    body.appendChild(collapseBtn);
+
+    block.appendChild(header);
+    block.appendChild(body);
+
+    const toggleCollapse = function () {
+        var wasClosed = body.classList.contains("closed");
+        if (wasClosed) {
+            body.style.maxHeight = body.scrollHeight + "px";
+            body.classList.remove("closed");
+            toggle.classList.remove("collapsed");
+            header.classList.remove("collapsed");
+            header.setAttribute("aria-expanded", "true");
+        } else {
+            body.style.maxHeight = body.scrollHeight + "px";
+            void body.offsetHeight;
+            body.classList.add("closed");
+            body.style.maxHeight = "0";
+            toggle.classList.add("collapsed");
+            header.classList.add("collapsed");
+            header.setAttribute("aria-expanded", "false");
+        }
+    };
+    header.addEventListener("click", toggleCollapse);
+    collapseBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleCollapse(); });
+
+    container.appendChild(block);
+
+    void block.offsetHeight;
+    body.style.maxHeight = body.scrollHeight + "px";
+}
+
+/* ============================================================
+   Main: start fetch (incremental loading with pagination)
    ============================================================ */
 async function startFetch() {
     var raw = document.getElementById("act-id-input").value.trim();
@@ -583,14 +903,11 @@ async function startFetch() {
         return;
     }
 
-    // Try direct parsing first (comma-separated pure numbers)
+    // Try direct parsing first
     var actIds = parseActIds(raw);
-    // If no direct numbers, try extractActId (handles URLs, short links, single act_id)
     if (!actIds.length) {
         var single = await extractActId(raw);
-        if (single) {
-            actIds = parseActIds(single);
-        }
+        if (single) actIds = parseActIds(single);
     }
 
     if (!actIds.length) {
@@ -600,7 +917,7 @@ async function startFetch() {
         return;
     }
 
-    // ---- 去重：过滤已查询过的 act_id ----
+    // 去重
     if (!window._queriedActIds) window._queriedActIds = new Set();
     var newActIds = actIds.filter(function (id) {
         if (window._queriedActIds.has(id)) return false;
@@ -615,7 +932,7 @@ async function startFetch() {
         return;
     }
 
-    var skippedCount = actIds.length - newActIds.length;
+    window._batchSkippedCount = actIds.length - newActIds.length;
 
     var opts = {
         img: document.getElementById("opt-img").checked,
@@ -623,6 +940,14 @@ async function startFetch() {
         wm: document.getElementById("opt-wm").checked,
     };
 
+    // ── 重置分页状态 ──
+    window._pages = [{ collections: [], cardCount: 0 }];
+    window._currentPageIdx = 0;
+    window._pendingActIds = newActIds.slice(); // 剩余待取回的 act_id
+    window._pendingOpts = opts;
+    window._isPageFetching = false;
+
+    // ── UI 准备 ──
     var btn = document.getElementById("btn-start");
     btn.disabled = true;
     showProgress();
@@ -630,28 +955,51 @@ async function startFetch() {
     clearAlerts();
     document.getElementById("results-body").innerHTML = "";
     document.getElementById("btn-dl-all").style.display = "none";
+    document.getElementById("pagination").style.display = "none";
 
-    // ---- 累计：不清空已有集合 ----
+    // 累计：不清空已有集合
     if (!window._allCollections) window._allCollections = [];
-    var collections = window._allCollections;
-    var prevCount = collections.length;
 
-    // Reset per-batch stats
-    state.totalActIds = newActIds.length;
+    // 显示紧凑进度
+    updateLoadProgress();
+    // 开始加载第一页
+    await continueFetch();
+}
+
+/* ============================================================
+   continueFetch: 加载下一页 / 继续加载当前批次的剩余 act_id
+   ============================================================ */
+async function continueFetch() {
+    if (window._isPageFetching) return;
+    window._isPageFetching = true;
+
+    var totalSteps = window._pendingActIds.length + window._allCollections.length;
+    var opts = window._pendingOpts;
+    var btn = document.getElementById("btn-start");
+
+    // 当前页 —— 可能已经有上一页的部分数据（翻页回来时）
+    var curPage = getCurrentPageData();
+    // 如果当前页已有数据且不是最后一页，先翻到下一页
+    if (curPage.collections.length > 0 && window._currentPageIdx < getTotalPages() - 1) {
+        window._currentPageIdx++;
+        curPage = getCurrentPageData();
+    }
+
+    state.totalActIds = window._pendingActIds.length;
     state.successActIds = 0;
     state.failActIds = 0;
 
-    var totalSteps = newActIds.length;
+    var pageFetchedCount = 0;
 
-    setProgress(5, "准备查询 " + totalSteps + " 个 act_id…");
+    // 逐个取回 act_id
+    while (window._pendingActIds.length > 0) {
+        var actId = window._pendingActIds[0];
+        var doneSoFar = window._allCollections.length;
+        var progressBase = 5 + (doneSoFar / totalSteps) * 85;
 
-    // Process each act_id sequentially
-    for (var ai = 0; ai < newActIds.length; ai++) {
-        var actId = newActIds[ai];
-        var progressBase = 5 + (ai / totalSteps) * 85;
+        setProgress(Math.round(progressBase), "正在查询分组：act_id=" + actId + " (" + (doneSoFar + 1) + "/" + totalSteps + ")…");
 
-        // Step 1: get lottery params for this act_id
-        setProgress(progressBase, "正在查询分组：act_id=" + actId + " (" + (ai + 1) + "/" + totalSteps + ")…");
+        // Step 1: get_params
         var allParams;
         try {
             var paramsRes = await fetch(API_BASE + "/api/get_params?act_id=" + encodeURIComponent(actId));
@@ -659,27 +1007,32 @@ async function startFetch() {
             if (paramsJson.code !== 0) {
                 state.failActIds++;
                 addAlert("alert-err", "❌ 分组查询失败 (act_id=" + escHtml(actId) + "): " + escHtml(String(paramsJson.message || paramsJson.code)));
+                window._pendingActIds.shift();
                 continue;
             }
             allParams = paramsJson.data || [];
         } catch (err) {
             state.failActIds++;
             addAlert("alert-err", "❌ 分组查询失败 (act_id=" + escHtml(actId) + "): " + escHtml(err.message || String(err)));
+            window._pendingActIds.shift();
             continue;
         }
 
         if (!allParams.length) {
             state.failActIds++;
             addAlert("alert-warn", "⚠️ 未找到收藏集分组 (act_id=" + escHtml(actId) + ")，请确认是否正确。");
+            window._pendingActIds.shift();
             continue;
         }
 
-        // Step 2: fetch collections for each lottery group
+        // Step 2: 逐个 lottery group 取回
         var actSuccess = 0;
+        var newCollectionsForAct = [];
+
         for (var li = 0; li < allParams.length; li++) {
             var p = allParams[li];
             var subProgress = progressBase + (li / allParams.length) * (85 / totalSteps);
-            setProgress(Math.round(subProgress), "正在获取 act_id=" + p.act_id + " lottery_id=" + p.lottery_id + " (" + (ai + 1) + "/" + totalSteps + ")…");
+            setProgress(Math.round(subProgress), "正在获取 act_id=" + p.act_id + " lottery_id=" + p.lottery_id + " (" + (doneSoFar + 1) + "/" + totalSteps + ")…");
 
             try {
                 var fetchJson = await fetchCollection(p.act_id, p.lottery_id);
@@ -688,46 +1041,98 @@ async function startFetch() {
                 } else {
                     var result = parseData(fetchJson.data || {}, opts);
                     result.actId = p.act_id;
-                    collections.push(result);
+                    window._allCollections.push(result);
+                    newCollectionsForAct.push(result);
                     actSuccess++;
-                    addAlert("alert-ok", "✅ " + escHtml(result.name) + " — " + result.cards.length + " 个卡牌 (act_id=" + escHtml(p.act_id) + ")");
                 }
             } catch (err) {
                 addAlert("alert-err", "❌ 获取失败 (act_id=" + escHtml(p.act_id) + "): " + escHtml(err.message || String(err)));
             }
         }
+
+        // 从 pending 中移除当前 act_id
+        window._pendingActIds.shift();
+        pageFetchedCount++;
+
         if (actSuccess > 0) {
             state.successActIds++;
             if (!window._succeededActIds) window._succeededActIds = new Set();
             window._succeededActIds.add(actId);
-        } else if (state.failActIds === 0 || state.failActIds < totalSteps) {
-            // If at least one lottery group was attempted but all failed
-            // (the fail counter was already incremented for get_params failures; for collection failures, we check actSuccess)
-            // Don't double-count — only mark fail if no success at all
+        }
+
+        // ── 立即显示刚加载的收藏集 ──
+        if (newCollectionsForAct.length > 0) {
+            var container = document.getElementById("results-body");
+            // 如果是当前页第一次显示，先清空容器
+            if (curPage.collections.length === 0 && pageFetchedCount === 1) {
+                container.innerHTML = "";
+                state.allLinks = [];
+            }
+
+            for (var nci = 0; nci < newCollectionsForAct.length; nci++) {
+                var newColl = newCollectionsForAct[nci];
+                curPage.collections.push(newColl);
+                curPage.cardCount += newColl.cards.length;
+                appendSingleBlock(container, newColl);
+            }
+            // 更新紧凑进度条
+            updateLoadProgress();
+
+            updateActionButtons();
+        }
+
+        // ── 判断是否达到分页阈值 ──
+        // 当前收藏集已完整加载完毕，现在判断总卡牌是否 ≥ 200
+        if (curPage.cardCount >= PAGE_CARD_LIMIT && window._pendingActIds.length > 0) {
+            // 达到了阈值且还有剩余 act_id → 停在此页，显示分页
+            addAlert("alert-info", "📄 第 " + (getTotalPages()) + " 页已达 " + curPage.cardCount + " 张，剩余 " + window._pendingActIds.length + " 个待加载");
+            break;
         }
     }
 
-    // Adjust fail count
+    // 调整计数
     state.failActIds = state.totalActIds - state.successActIds;
     if (state.failActIds < 0) state.failActIds = 0;
 
-    // Show summary before results
-    var summaryParts = [];
-    if (skippedCount > 0) {
-        summaryParts.push("跳过 " + skippedCount + " 个（已存在）");
+    // 汇总信息
+    var totalCollections = window._allCollections.length;
+    var summaryParts2 = [];
+    if (window._batchSkippedCount > 0) {
+        summaryParts2.push("跳过 " + window._batchSkippedCount + " 个（已存在）");
     }
-    summaryParts.push("本次查询 " + state.totalActIds + " 个 act_id，成功 " + state.successActIds + " 个");
-    if (state.failActIds > 0) {
-        summaryParts.push("失败 " + state.failActIds + " 个");
-    }
-    summaryParts.push("累计共 " + collections.length + " 个收藏集");
-    var summaryMsg = summaryParts.join("，");
-    addAlert(state.failActIds > 0 ? "alert-warn" : "alert-ok", summaryMsg);
+    summaryParts2.push("本次查询 " + state.totalActIds + " 个 act_id");
+    summaryParts2.push("成功 " + state.successActIds + " 个");
+    if (state.failActIds > 0) summaryParts2.push("失败 " + state.failActIds + " 个");
+    summaryParts2.push("累计共 " + totalCollections + " 个收藏集");
+    addAlert(state.failActIds > 0 ? "alert-warn" : "alert-ok", summaryParts2.join("，"));
 
+    // 更新进度
     setProgress(100, "完成");
     setTimeout(hideProgress, 900);
-    renderResults(collections);
+
+    window._isPageFetching = false;
     btn.disabled = false;
+
+    // 如果还有待加载，新建下一页
+    if (window._pendingActIds.length > 0) {
+        window._pages.push({ collections: [], cardCount: 0 });
+    }
+
+    // 显示/隐藏下载全部按钮
+    if (state.allLinks.length > 0) {
+        document.getElementById("btn-dl-all").style.display = "inline-flex";
+        document.getElementById("dl-type-chks").style.display = "flex";
+        document.getElementById("dl-chk-img").checked =
+            document.getElementById("opt-img").checked;
+        document.getElementById("dl-chk-vid").checked =
+            document.getElementById("opt-vid").checked;
+        document.getElementById("dl-chk-wm").checked =
+            document.getElementById("opt-wm").checked;
+    } else {
+        document.getElementById("dl-type-chks").style.display = "none";
+    }
+
+    updatePaginationUI();
 }
 
 /* ============================================================
@@ -1025,6 +1430,7 @@ function clearAll() {
     document.getElementById("alerts").innerHTML = "";
     document.getElementById("results-wrap").classList.remove("on");
     document.getElementById("btn-dl-all").style.display = "none";
+    document.getElementById("pagination").style.display = "none";
     hideProgress();
     state.allLinks = [];
     state.totalActIds = 0;
@@ -1033,6 +1439,12 @@ function clearAll() {
     window._allCollections = [];
     window._queriedActIds = new Set();
     window._succeededActIds = new Set();
+    window._pages = [{ collections: [], cardCount: 0 }];
+    window._currentPageIdx = 0;
+    window._pendingActIds = [];
+    window._pendingOpts = null;
+    window._isPageFetching = false;
+    window._batchSkippedCount = 0;
     setZipProgress('');
     updateActionButtons();
 }

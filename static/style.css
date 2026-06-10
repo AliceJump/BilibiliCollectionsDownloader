@@ -4,10 +4,13 @@
     --pink-light: rgba(251, 114, 153, 0.08);
     --green: #52c41a;
     --bg: #f4f5f7;
+    --bg2: #eef0f2;
     --card: #fff;
     --text: #18191c;
+    --fg: #18191c;
     --sub: #9499a0;
     --border: #e3e5e7;
+    --bd: #e3e5e7;
     --radius: 12px;
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
@@ -1007,4 +1010,52 @@ footer a:hover {
         font-size: 17px;
         line-height: 36px;
     }
+}
+
+/* ============================================================
+   Load progress (compact single line)
+   ============================================================ */
+.load-progress {
+    padding: 6px 12px;
+    margin: 4px 0;
+    font-size: 13px;
+    color: var(--sub);
+    background: var(--bg2);
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid var(--bd);
+}
+
+/* ============================================================
+   Pagination
+   ============================================================ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 0 8px;
+    margin-top: 8px;
+    border-top: 1px solid var(--bd);
+}
+
+.page-info {
+    font-size: 13px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    flex-shrink: 1;
+}
+
+#btn-page-prev,
+#btn-page-next {
+    flex-shrink: 0;
+}
+
+#btn-page-prev:disabled,
+#btn-page-next:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
