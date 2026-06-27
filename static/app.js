@@ -1675,6 +1675,18 @@ function clearAll() {
     setZipProgress('');
     updateActionButtons();
 }
+/* ============================================================
+   Input tab switching
+   ============================================================ */
+function switchInputTab(tab) {
+    document.querySelectorAll(".card-tab").forEach(function (t) {
+        t.classList.toggle("active", t.dataset.tab === tab);
+    });
+    document.querySelectorAll(".card-tab-content").forEach(function (c) {
+        c.classList.toggle("active", c.id === "tab-" + tab);
+    });
+}
+
 var _zipProgressTimer = null;
 
 function setZipProgress(text, isError) {

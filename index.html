@@ -132,23 +132,29 @@
     </header>
 
     <div class="wrap">
-                <!-- ─── Input card ─── -->
+                <!-- ─── Input card (tabbed) ─── -->
                 <div class="card">
-                    <div class="card-title">🔍 按 act_id 查询</div>
-
-                    <div class="id-row">
-                        <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
-                    </div>
-                    <div class="hint">
-                        💡 支持多个 act_id，用英文逗号分隔，例：<code>112727,112728,112729</code><br />
-                        也可粘贴含 <code>act_id</code> 的完整链接、b23.tv 短链接、<br />
-                        或 <code>blackboard/activity?type=dlc&id=xxx</code> 格式的活动链接。
+                    <div class="card-tabs">
+                        <div class="card-tab active" data-tab="actid" onclick="switchInputTab('actid')">🔢 act_id</div>
+                        <div class="card-tab" data-tab="qr" onclick="switchInputTab('qr')">📷 二维码</div>
+                        <div class="card-tab disabled" data-tab="search" title="即将推出">🔎 搜索活动名</div>
                     </div>
 
-                    <!-- QR upload section -->
-                    <div class="qr-section">
-                        <div class="qr-label">📷 或上传二维码图片</div>
-                        <div class="qr-zone" id="qr-zone">
+                    <!-- Tab: act_id input -->
+                    <div class="card-tab-content active" id="tab-actid">
+                        <div class="id-row">
+                            <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
+                        </div>
+                        <div class="hint">
+                            💡 支持多个 act_id，用英文逗号分隔，例：<code>112727,112728,112729</code><br />
+                            也可粘贴含 <code>act_id</code> 的完整链接、b23.tv 短链接、<br />
+                            或 <code>blackboard/activity?type=dlc&id=xxx</code> 格式的活动链接。
+                        </div>
+                    </div>
+
+                    <!-- Tab: QR scan -->
+                    <div class="card-tab-content" id="tab-qr">
+                        <div class="qr-zone" id="qr-zone" style="margin-top:0;">
                             <input type="file" id="qr-input" accept="image/*" multiple />
                             <div class="icon">🖼️</div>
                             <p>
@@ -158,9 +164,14 @@
                         <div class="qr-thumbs" id="qr-thumbs"></div>
                     </div>
 
+                    <!-- Tab: search (placeholder) -->
+                    <div class="card-tab-content" id="tab-search">
+                        <div style="text-align:center;padding:24px 0;color:var(--sub);font-size:13px;">
+                            🔎 搜索活动名功能即将推出
+                        </div>
+                    </div>
 
-
-                    <!-- Options -->
+                    <!-- Options (always visible) -->
                     <div class="opts-row">
                         <span class="opts-label">下载内容：</span>
                         <div class="chk-grp">
