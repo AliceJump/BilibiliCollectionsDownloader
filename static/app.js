@@ -1822,7 +1822,7 @@ async function loadEmojiCard(card, bodyEl, coll, collBlock, emojiWrap) {
         var rawEmojis = await splitEmojiSheet(proxyUrl);
         if (!rawEmojis || rawEmojis.length === 0) throw new Error("无透明区域");
 
-        // 筛选：去掉内部透明占比 > 70% 的表情
+        // 筛选：去掉内部透明占比 > 70% 或只有白色+透明的表情
         var emojis = [];
         rawEmojis.forEach(function (e) {
             var cvs = e.canvas;
@@ -1831,10 +1831,18 @@ async function loadEmojiCard(card, bodyEl, coll, collBlock, emojiWrap) {
             var px = imgData.data;
             var total = cvs.width * cvs.height;
             var transparent = 0;
-            for (var pi = 3; pi < px.length; pi += 4) {
-                if (px[pi] < 30) transparent++;
+            var colored = 0; // 非白非透明的有色像素
+            for (var pi = 0; pi < px.length; pi += 4) {
+                var r = px[pi], g = px[pi + 1], b = px[pi + 2], a = px[pi + 3];
+                if (a < 30) {
+                    transparent++;
+                } else if (r > 240 && g > 240 && b > 240) {
+                    // 白色像素，不计入有色
+                } else {
+                    colored++;
+                }
             }
-            if (transparent / total < 0.7) {
+            if (transparent / total < 0.7 && colored > 0) {
                 emojis.push(e);
             }
         });
