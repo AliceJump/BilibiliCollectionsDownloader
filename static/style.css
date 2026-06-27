@@ -1122,22 +1122,6 @@ header .sub {
 .emoji-loading {
     text-align: center; padding: 20px; color: var(--sub); font-size: 13px;
 }
-.emoji-grid {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    justify-content: center; padding: 12px;
-    background: #f8f8f8;
-}
-.emoji-item {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-}
-.emoji-thumb {
-    border-radius: 4px; border: 1px solid #e3e5e7; cursor: pointer;
-    transition: transform 0.12s;
-}
-.emoji-thumb:hover { transform: scale(1.12); }
-.emoji-label {
-    font-size: 9px; color: var(--sub);
-}
 
 /* ── Empty ── */
 .empty {
