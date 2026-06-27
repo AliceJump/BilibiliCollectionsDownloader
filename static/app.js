@@ -289,19 +289,79 @@ function parseData(data, opts) {
         (item) => item && processCard(item.card_info),
     );
 
+    // Process collect_list rewards: each collect_info may have coupon images,
+    // and rarely a card_type_info (which we already handle above).
     var cl = data.collect_list;
     if (cl) {
+        var collectInfos = [];
         if (Array.isArray(cl)) {
-            cl.forEach(function (c) {
-                if (c && c.card_item && c.card_item.card_type_info)
-                    processCardTypeInfo(c.card_item.card_type_info);
-            });
+            collectInfos = cl;
         } else if (typeof cl === "object") {
-            (cl.collect_infos || []).forEach(function (c) {
-                if (c && c.card_item && c.card_item.card_type_info)
-                    processCardTypeInfo(c.card_item.card_type_info);
-            });
+            collectInfos = cl.collect_infos || [];
         }
+        collectInfos.forEach(function (c) {
+            if (!c) return;
+            // card_type_info path (rare)
+            if (c.card_item && c.card_item.card_type_info) {
+                processCardTypeInfo(c.card_item.card_type_info);
+            }
+            // Reward image path — each collect_info has its own image
+            var rewardName = c.redeem_item_name || ("奖励");
+            var typeName = c.redeem_item_type_name || "";
+            var imgUrl = c.redeem_item_image || c.redeem_detail_image || "";
+            if (opts.img && imgUrl) {
+                // Use a separate map key prefix to avoid name collision with cards
+                var key = "🎁 " + rewardName;
+                if (!map.has(key)) map.set(key, { card_name: key, links: [] });
+                var entry = map.get(key);
+                entry.links.push({
+                    url: imgUrl,
+                    label: typeName ? "🖼️ " + typeName : "🖼️",
+                    cls: "dl-a-img",
+                    ext: "png",
+                });
+            }
+            // Detail image (often same as main image, but sometimes different)
+            var detailUrl = c.redeem_detail_image || "";
+            if (opts.img && detailUrl && detailUrl !== imgUrl) {
+                var key = "🎁 " + rewardName + " (详情)";
+                if (!map.has(key)) map.set(key, { card_name: key, links: [] });
+                map.get(key).links.push({
+                    url: detailUrl,
+                    label: "🖼️",
+                    cls: "dl-a-img",
+                    ext: "png",
+                });
+            }
+        });
+    }
+
+    // Process act_rights_infos — rights / entitlements with resource images
+    var rights = data.act_rights_infos;
+    if (rights && Array.isArray(rights) && opts.img) {
+        var rightsLabelMap = {
+            1: "装扮",
+            2: "评论背景",
+            3: "动态卡片",
+            4: "头像挂件",
+            5: "加载logo",
+            6: "空间图",
+            7: "粉丝勋章",
+        };
+        rights.forEach(function (r, idx) {
+            if (!r) return;
+            var url = (r.resource || "").split("@")[0]; // remove crop params
+            if (!url) return;
+            var typeLabel = rightsLabelMap[r.rights_type] || ("权益" + r.rights_type);
+            var key = "🔑 " + typeLabel;
+            if (!map.has(key)) map.set(key, { card_name: key, links: [] });
+            map.get(key).links.push({
+                url: url,
+                label: "🖼️",
+                cls: "dl-a-img",
+                ext: url.match(/\.webp$/i) ? "webp" : "png",
+            });
+        });
     }
 
     return { name: name, cards: [...map.values()] };
