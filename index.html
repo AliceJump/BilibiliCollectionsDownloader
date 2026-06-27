@@ -86,7 +86,35 @@
     <div class="fab-overlay" id="scan-overlay" onclick="toggleScan()"></div>
 
     <!-- ─── 浮动下载按钮 ─── -->
-    <button class="fab-btn fab-dl" id="btn-dl-all" onclick="downloadAll()" title="下载全部" style="display:none;">⬇️</button>
+    <button class="fab-btn fab-dl" id="btn-dl-all" onclick="toggleDownload()" title="下载" style="display:none;">⬇️</button>
+
+    <!-- ─── 下载浮窗 ─── -->
+    <div class="fab-panel" id="dl-panel">
+        <div class="fab-panel-header">
+            <span>⬇️ 下载资源</span>
+            <div class="fab-panel-actions">
+                <button class="fab-panel-btn" onclick="toggleDownload()" title="关闭">✕</button>
+            </div>
+        </div>
+        <div class="fab-panel-body">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px;font-weight:600;margin-bottom:8px;">选择下载类型：</div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️ 图片</label>
+                    <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬 无水印视频</label>
+                    <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧 带水印视频</label>
+                </div>
+            </div>
+            <div id="dl-panel-status" style="font-size:11px;color:var(--sub);margin-bottom:8px;min-height:16px;"></div>
+            <button class="btn btn-green" onclick="downloadAll()" style="width:100%;padding:10px;font-size:13px;justify-content:center;">⬇️ 开始下载</button>
+        </div>
+    </div>
+    <div class="fab-overlay" id="dl-overlay" onclick="toggleDownload()"></div>
+
+    <!-- ─── 顶部进度通知 ─── -->
+    <div class="top-notice" id="top-notice" style="display:none;">
+        <div class="top-notice-text" id="top-notice-text"></div>
+    </div>
 
     <!-- ─── 主内容 ─── -->
     <header>
@@ -166,16 +194,6 @@
 
                 <!-- ─── Results ─── -->
                 <div class="results-wrap" id="results-wrap">
-                    <div class="result-hdr">
-                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                            <span id="dl-type-chks" style="display:none;gap:8px;">
-                                <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
-                                <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
-                                <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
-                            </span>
-                            <span id="zip-progress-text" style="font-size:11px;color:var(--sub);"></span>
-                        </div>
-                    </div>
                     <div id="alerts"></div>
                     <div id="results-body"></div>
                     <div class="pagination" id="pagination" style="display:none;">

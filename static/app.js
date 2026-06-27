@@ -45,7 +45,21 @@ function toggleScan() {
     var show = !panel.classList.contains("show");
     panel.classList.toggle("show", show);
     overlay.classList.toggle("show", show);
-    if (show) renderHistory();
+}
+
+function toggleDownload() {
+    var panel = document.getElementById("dl-panel");
+    var overlay = document.getElementById("dl-overlay");
+    var show = !panel.classList.contains("show");
+    panel.classList.toggle("show", show);
+    overlay.classList.toggle("show", show);
+    if (show) {
+        // 同步下载类型选项
+        document.getElementById("dl-chk-img").checked = document.getElementById("opt-img").checked;
+        document.getElementById("dl-chk-vid").checked = document.getElementById("opt-vid").checked;
+        document.getElementById("dl-chk-wm").checked = document.getElementById("opt-wm").checked;
+        document.getElementById("dl-panel-status").textContent = "共 " + state.allLinks.length + " 个资源";
+    }
 }
 
 function toggleHistory() {
@@ -692,7 +706,6 @@ function renderResults(collections) {
 
     if (state.allLinks.length > 0) {
         document.getElementById("btn-dl-all").style.display = "inline-flex";
-        document.getElementById("dl-type-chks").style.display = "inline-flex";
         // 默认与上方选项同步
         document.getElementById("dl-chk-img").checked =
             document.getElementById("opt-img").checked;
@@ -1120,7 +1133,6 @@ async function startFetch() {
     clearAlerts();
     // 不清空 results-body，已有内容保留
     document.getElementById("btn-dl-all").style.display = "none";
-    document.getElementById("dl-type-chks").style.display = "none";
     document.getElementById("pagination").style.display = "none";
 
     // 累计：不清空已有集合
@@ -1299,7 +1311,6 @@ async function continueFetch() {
     // 显示/隐藏下载全部按钮
     if (state.allLinks.length > 0) {
         document.getElementById("btn-dl-all").style.display = "inline-flex";
-        document.getElementById("dl-type-chks").style.display = "inline-flex";
         document.getElementById("dl-chk-img").checked =
             document.getElementById("opt-img").checked;
         document.getElementById("dl-chk-vid").checked =
@@ -1316,18 +1327,16 @@ async function continueFetch() {
    ============================================================ */
 // 批量下载所有资源（图片/视频）
 async function downloadAll() {
-    const btn = document.getElementById("btn-dl-all");
+    // 关闭下载浮窗
+    document.getElementById("dl-panel").classList.remove("show");
+    document.getElementById("dl-overlay").classList.remove("show");
+
+    setZipProgress("准备下载...");
+    if (!state.allLinks.length) {
+        return;
+    }
 
     try {
-        const btn = document.getElementById("btn-dl-all");
-
-        btn.disabled = true;
-
-        setZipProgress("准备下载...");
-        if (!state.allLinks.length) {
-            return;
-        }
-
         const chkImg = document.getElementById("dl-chk-img").checked;
         const chkVid = document.getElementById("dl-chk-vid").checked;
         const chkWm = document.getElementById("dl-chk-wm").checked;
@@ -1588,10 +1597,9 @@ async function downloadAll() {
         saveAs(zipBlob, finalZipName);
 
         setZipProgress("下载完成（ZIP）");
-
-        btn.disabled = false;
-    } finally {
-        btn.disabled = false;
+    } catch (e) {
+        console.error("下载出错", e);
+        setZipProgress("下载出错: " + (e.message || e), true);
     }
 }
 
@@ -1606,7 +1614,6 @@ function clearAll() {
     document.getElementById("alerts").innerHTML = "";
     document.getElementById("results-wrap").classList.remove("on");
     document.getElementById("btn-dl-all").style.display = "none";
-    document.getElementById("dl-type-chks").style.display = "none";
     document.getElementById("pagination").style.display = "none";
     hideProgress();
     state.allLinks = [];
@@ -1625,11 +1632,22 @@ function clearAll() {
     setZipProgress('');
     updateActionButtons();
 }
-function setZipProgress(text) {
-    const el = document.getElementById("zip-progress-text");
-
-    if (el) {
-        el.textContent = text || "";
+function setZipProgress(text, isError) {
+    // 顶部通知
+    var notice = document.getElementById("top-notice");
+    var noticeText = document.getElementById("top-notice-text");
+    if (text) {
+        notice.style.display = "block";
+        notice.classList.toggle("err", !!isError);
+        noticeText.textContent = text;
+    } else {
+        notice.style.display = "none";
+    }
+    // 下载浮窗内状态
+    var statusEl = document.getElementById("dl-panel-status");
+    if (statusEl) {
+        statusEl.textContent = text || "";
+        statusEl.style.color = isError ? "#ff4d4f" : "var(--sub)";
     }
 }
 
