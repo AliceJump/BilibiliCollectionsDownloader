@@ -1908,15 +1908,16 @@ function openEmojiPopup(data) {
     var panel = document.createElement("div");
     panel.className = "fab-panel show";
     panel.id = "emoji-popup";
-    panel.style.cssText = "left:50%;top:50%;transform:translate(-50%,-50%);width:420px;max-height:80vh;z-index:2001;";
+    panel.style.cssText = "left:50%;top:50%;transform:translate(-50%,-50%);width:440px;max-height:85vh;z-index:2001;display:flex;flex-direction:column;";
 
     var header = document.createElement("div");
     header.className = "fab-panel-header";
     header.innerHTML = '<span>😊 ' + data.card_name + '</span>' +
         '<div class="fab-panel-actions"><button class="fab-panel-btn" onclick="closeEmojiPopup()">✕</button></div>';
 
-    var body = document.createElement("div");
-    body.className = "emoji-popup-body";
+    var scrollBody = document.createElement("div");
+    scrollBody.className = "emoji-popup-body";
+    scrollBody.style.cssText = "flex:1;overflow-y:auto;";
 
     data.emojis.forEach(function (emo, idx) {
         (function (idx) {
@@ -1948,24 +1949,26 @@ function openEmojiPopup(data) {
             label.textContent = (idx + 1);
             wrapper.appendChild(label);
 
-            body.appendChild(wrapper);
+            scrollBody.appendChild(wrapper);
         })(idx);
     });
 
-    // 下载全部 (ZIP)
+    panel.appendChild(header);
+    panel.appendChild(scrollBody);
+
+    // 下载全部 (ZIP) — 独立底部栏
     if (data.emojis.length > 1) {
         var footer = document.createElement("div");
         footer.className = "emoji-popup-footer";
         var dlZipBtn = document.createElement("button");
         dlZipBtn.className = "btn btn-green";
+        dlZipBtn.style.cssText = "width:100%;padding:10px;font-size:13px;justify-content:center;";
         dlZipBtn.textContent = "⬇️ 下载全部 " + data.emojis.length + " 个 (ZIP)";
         dlZipBtn.onclick = function () { downloadEmojiZip(data); };
         footer.appendChild(dlZipBtn);
-        body.appendChild(footer);
+        panel.appendChild(footer);
     }
 
-    panel.appendChild(header);
-    panel.appendChild(body);
     document.body.appendChild(overlay);
     document.body.appendChild(panel);
 }
