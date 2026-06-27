@@ -478,16 +478,59 @@ function hideProgress() {
 }
 
 /* ============================================================
-   Alert helpers
+   Toast / Notification helpers
    ============================================================ */
-function addAlert(cls, html) {
-    const d = document.createElement("div");
-    d.className = "alert " + cls;
-    d.innerHTML = html;
-    document.getElementById("alerts").appendChild(d);
+var _noticeStack = [];
+
+function showNotice(html, type) {
+    var el = document.createElement("div");
+    el.className = "float-notice" + (type ? " float-notice-" + type : "");
+    el.innerHTML = html;
+    document.body.appendChild(el);
+    // 计算堆叠位置
+    var idx = _noticeStack.length;
+    var baseTop = 56 + idx * 48; // 每个通知间隔 48px
+    el.style.top = baseTop + "px";
+    _noticeStack.push(el);
+    // 强制回流后添加 show class 触发动画
+    void el.offsetWidth;
+    el.classList.add("show");
+    // 4 秒后自动移除
+    setTimeout(function () {
+        removeNotice(el);
+    }, 4000);
+    return el;
 }
+
+function removeNotice(el) {
+    if (!el || !el.parentNode) return;
+    el.classList.remove("show");
+    var idx = _noticeStack.indexOf(el);
+    if (idx !== -1) _noticeStack.splice(idx, 1);
+    // 移除后重排后面通知的位置
+    setTimeout(function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        for (var i = idx; i < _noticeStack.length; i++) {
+            var baseTop = 56 + i * 48;
+            _noticeStack[i].style.top = baseTop + "px";
+        }
+    }, 300);
+}
+
 function clearAlerts() {
-    document.getElementById("alerts").innerHTML = "";
+    // 移除所有浮动通知
+    for (var i = _noticeStack.length - 1; i >= 0; i--) {
+        removeNotice(_noticeStack[i]);
+    }
+}
+
+// 兼容旧代码：addAlert 现在创建浮动通知而非内联 alert
+function addAlert(cls, html) {
+    var type = "";
+    if (cls.indexOf("alert-ok") !== -1) type = "ok";
+    else if (cls.indexOf("alert-err") !== -1) type = "err";
+    else if (cls.indexOf("alert-warn") !== -1) type = "warn";
+    showNotice(html, type);
 }
 
 /* ============================================================

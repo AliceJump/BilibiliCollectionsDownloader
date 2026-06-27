@@ -12,7 +12,36 @@
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* ── 顶部浮窗通知 ── */
+/* ── 通用浮动通知（堆叠） ── */
+.float-notice {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    z-index: 2000;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    opacity: 0;
+    transition: opacity 0.3s ease, top 0.3s ease;
+    pointer-events: none;
+    background: #fff;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+}
+.float-notice.show { opacity: 1; }
+.float-notice-ok {
+    background: #f6ffed; color: #135200; border-color: #b7eb8f;
+}
+.float-notice-err {
+    background: #fff2f0; color: #a8071a; border-color: #ffccc7;
+}
+.float-notice-warn {
+    background: #fffbe6; color: #613400; border-color: #ffe58f;
+}
+
+/* ── 顶部浮窗通知（下载进度用） ── */
 .top-notice {
     position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
     z-index: 2000;
