@@ -3,10 +3,11 @@ import os
 import logging
 import hashlib
 import json
+import re
 import time
 import random
 from datetime import datetime
-from urllib.parse import urlparse, unquote
+from urllib.parse import quote, urlparse, unquote
 
 import requests as req_lib
 from flask import Flask, Response, jsonify, request, send_file
@@ -491,6 +492,123 @@ def get_params():
 
     LOGGER.info(f"成功提取 {len(params_list)} 个参数对: {params_list}")
     return jsonify({"code": 0, "data": params_list})
+
+
+@app.route("/api/search_collections")
+def search_collections():
+    """
+    按关键词搜索 B 站装扮商城中的收藏集活动。
+    参考 Collection-Down 的搜索逻辑，仅保留可转换为 act_id 的 dlc_act / ip 结果。
+    """
+    key_word = request.args.get("key_word", "").strip()
+    page = request.args.get("page", "1").strip() or "1"
+    LOGGER.info(f"/api/search_collections 收到请求: key_word={key_word!r}, page={page!r}")
+
+    if not key_word:
+        return jsonify({"code": -1, "message": "缺少参数 key_word"}), 400
+
+    if not page.isdigit() or int(page) < 1:
+        return jsonify({"code": -1, "message": "page 必须为正整数"}), 400
+
+    url = (
+        "https://api.bilibili.com/x/garb/v2/mall/home/search"
+        f"?key_word={quote(key_word)}&pn={page}"
+    )
+    raw, error = bili_request(url, timeout=12, max_retry=3)
+    if error:
+        LOGGER.error(f"搜索收藏集失败: {error}")
+        return jsonify({"code": -1, "message": error}), 502
+
+    if raw.get("code") != 0:
+        LOGGER.warning(f"B站搜索接口错误: code={raw.get('code')}, message={raw.get('message')}")
+        return jsonify({"code": raw.get("code", -1), "message": raw.get("message") or "B站搜索接口返回错误"}), 502
+
+    result_list = []
+    for item in ((raw.get("data") or {}).get("list") or []):
+        if not isinstance(item, dict):
+            continue
+        props = item.get("properties") or {}
+        item_type = props.get("type")
+        if item_type not in ("ip", "dlc_act"):
+            continue
+
+        act_id = str(props.get("dlc_act_id") or "").strip()
+        if (not act_id or not act_id.isdigit()) and item_type == "dlc_act" and item.get("item_id"):
+            act_id = str(item.get("item_id"))
+
+        if not act_id or not act_id.isdigit() or act_id == "0":
+            continue
+
+        sub_ids = []
+        fan_item_ids = str(props.get("fan_item_ids") or "").strip()
+        if fan_item_ids:
+            sub_ids = [part.strip() for part in fan_item_ids.split(",") if part.strip().isdigit()]
+        else:
+            lottery_id = str(props.get("dlc_lottery_id") or "").strip()
+            if lottery_id.isdigit() and lottery_id != "0":
+                sub_ids = [lottery_id]
+
+        result_list.append({
+            "name": item.get("name") or act_id,
+            "act_id": act_id,
+            "type": item_type,
+            "sub_ids": sub_ids,
+            "cover": props.get("image_cover") or "",
+        })
+
+    return jsonify({"code": 0, "data": result_list})
+
+
+def _available_act_ids_path():
+    logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    return os.path.join(logs_dir, "available_act_ids.json")
+
+
+def _read_available_act_ids():
+    path = _available_act_ids_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict) and str(item.get("act_id", "")).isdigit()]
+    except Exception:
+        LOGGER.warning("读取可用 act_id 记录失败", exc_info=True)
+    return []
+
+
+@app.route("/api/available_act_ids", methods=["GET", "POST"])
+def available_act_ids():
+    """读取或追加扫描确认可用的 act_id。"""
+    if request.method == "GET":
+        return jsonify({"code": 0, "data": _read_available_act_ids()})
+
+    payload = request.get_json(silent=True) or {}
+    act_id = str(payload.get("act_id") or "").strip()
+    name = str(payload.get("name") or "").strip()
+    if not act_id.isdigit() or act_id == "0":
+        return jsonify({"code": -1, "message": "act_id 必须为正整数"}), 400
+
+    items = _read_available_act_ids()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    found = False
+    for item in items:
+        if str(item.get("act_id")) == act_id:
+            if name:
+                item["name"] = name
+            item["updated_at"] = now
+            found = True
+            break
+    if not found:
+        items.append({"act_id": act_id, "name": name or act_id, "created_at": now, "updated_at": now})
+
+    items.sort(key=lambda item: int(item.get("act_id") or 0))
+    with open(_available_act_ids_path(), "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+    return jsonify({"code": 0, "data": {"act_id": act_id, "count": len(items)}})
 
 
 _RESOLVE_HEADERS = {

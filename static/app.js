@@ -39,10 +39,26 @@ function clearHistory() {
     renderHistory();
 }
 
+function closeFloatingPanels(exceptId) {
+    [
+        ["scan-panel", "scan-overlay"],
+        ["dl-panel", "dl-overlay"],
+        ["hist-panel", "hist-overlay"],
+        ["fav-panel", "fav-overlay"],
+    ].forEach(function (pair) {
+        if (pair[0] === exceptId) return;
+        var panel = document.getElementById(pair[0]);
+        var overlay = document.getElementById(pair[1]);
+        if (panel) panel.classList.remove("show");
+        if (overlay) overlay.classList.remove("show");
+    });
+}
+
 function toggleScan() {
     var panel = document.getElementById("scan-panel");
     var overlay = document.getElementById("scan-overlay");
     var show = !panel.classList.contains("show");
+    if (show) closeFloatingPanels("scan-panel");
     panel.classList.toggle("show", show);
     overlay.classList.toggle("show", show);
 }
@@ -51,6 +67,7 @@ function toggleDownload() {
     var panel = document.getElementById("dl-panel");
     var overlay = document.getElementById("dl-overlay");
     var show = !panel.classList.contains("show");
+    if (show) closeFloatingPanels("dl-panel");
     panel.classList.toggle("show", show);
     overlay.classList.toggle("show", show);
     if (show) {
@@ -66,9 +83,117 @@ function toggleHistory() {
     var panel = document.getElementById("hist-panel");
     var overlay = document.getElementById("hist-overlay");
     var show = !panel.classList.contains("show");
+    if (show) closeFloatingPanels("hist-panel");
     panel.classList.toggle("show", show);
     overlay.classList.toggle("show", show);
     if (show) renderHistory();
+}
+
+function toggleFavorites() {
+    var panel = document.getElementById("fav-panel");
+    var overlay = document.getElementById("fav-overlay");
+    var show = !panel.classList.contains("show");
+    if (show) closeFloatingPanels("fav-panel");
+    panel.classList.toggle("show", show);
+    overlay.classList.toggle("show", show);
+    if (show) renderFavorites();
+}
+
+function getFavorites() {
+    try {
+        return JSON.parse(localStorage.getItem("bili_favorites") || '{"collections":[],"cards":[]}');
+    } catch (_) {
+        return { collections: [], cards: [] };
+    }
+}
+
+function saveFavorites(data) {
+    localStorage.setItem("bili_favorites", JSON.stringify({
+        collections: data.collections || [],
+        cards: data.cards || [],
+    }));
+}
+
+function isCollectionFavorite(actId) {
+    return getFavorites().collections.some(function (item) { return String(item.act_id) === String(actId); });
+}
+
+function isCardFavorite(actId, cardName) {
+    return getFavorites().cards.some(function (item) {
+        return String(item.act_id) === String(actId) && item.card_name === cardName;
+    });
+}
+
+function toggleCollectionFavorite(coll) {
+    var data = getFavorites();
+    var actId = String(coll.actId || "");
+    var idx = data.collections.findIndex(function (item) { return String(item.act_id) === actId; });
+    if (idx >= 0) {
+        data.collections.splice(idx, 1);
+        showToast("已取消活动收藏", false);
+    } else {
+        data.collections.unshift({ act_id: actId, name: coll.name || actId, time: Date.now() });
+        showToast("已收藏活动", false);
+    }
+    saveFavorites(data);
+    renderFavorites();
+}
+
+function toggleCardFavorite(coll, card) {
+    var data = getFavorites();
+    var actId = String(coll.actId || "");
+    var cardName = card.card_name || "unnamed";
+    var idx = data.cards.findIndex(function (item) {
+        return String(item.act_id) === actId && item.card_name === cardName;
+    });
+    if (idx >= 0) {
+        data.cards.splice(idx, 1);
+        showToast("已取消卡片收藏", false);
+    } else {
+        data.cards.unshift({
+            act_id: actId,
+            collection_name: coll.name || actId,
+            card_name: cardName,
+            urls: card.links.map(function (link) { return { url: link.url, type: link.cls, ext: link.ext }; }),
+            time: Date.now(),
+        });
+        showToast("已收藏卡片", false);
+    }
+    saveFavorites(data);
+    renderFavorites();
+}
+
+function clearFavorites() {
+    localStorage.removeItem("bili_favorites");
+    renderFavorites();
+}
+
+function renderFavorites() {
+    var list = document.getElementById("favorites-list");
+    if (!list) return;
+    var data = getFavorites();
+    var html = "";
+    if (data.collections.length) {
+        html += '<div class="fav-section-title">活动收藏</div>';
+        html += data.collections.map(function (item) {
+            return '<div class="fav-item" onclick="historyQuery(\'' + escHtml(String(item.act_id)) + '\')">' +
+                '<div class="fav-item-name">' + escHtml(item.name || item.act_id) + '</div>' +
+                '<div class="fav-item-meta">act_id: ' + escHtml(String(item.act_id)) + '</div>' +
+                '</div>';
+        }).join("");
+    }
+    if (data.cards.length) {
+        html += '<div class="fav-section-title">卡片收藏</div>';
+        html += data.cards.map(function (item) {
+            var firstUrl = item.urls && item.urls[0] ? item.urls[0].url : "";
+            return '<div class="fav-item">' +
+                '<div class="fav-item-name">' + escHtml(item.card_name || "unnamed") + '</div>' +
+                '<div class="fav-item-meta">' + escHtml(item.collection_name || "未知合集") + ' · act_id: ' + escHtml(String(item.act_id)) + '</div>' +
+                (firstUrl ? '<a class="fav-item-link" href="' + escHtml(firstUrl) + '" target="_blank" rel="noopener">打开资源</a>' : '') +
+                '</div>';
+        }).join("");
+    }
+    list.innerHTML = html || '<div class="hist-empty">暂无收藏</div>';
 }
 
 function renderHistory() {
@@ -279,6 +404,135 @@ async function fetchCollection(act_id, lottery_id, goods_id) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
+}
+
+var searchState = {
+    keyword: "",
+    page: 1,
+    loading: false,
+};
+
+function toggleSearchDropdown(show) {
+    var dropdown = document.getElementById("search-dropdown");
+    if (dropdown) dropdown.classList.toggle("show", !!show);
+}
+
+async function searchCollections(reset) {
+    if (searchState.loading) return;
+
+    var input = document.getElementById("search-keyword");
+    var resultsEl = document.getElementById("search-results");
+    var hintEl = document.getElementById("search-hint");
+    var moreWrap = document.getElementById("search-more-wrap");
+    var btn = document.getElementById("btn-search");
+    var moreBtn = document.getElementById("btn-search-more");
+    if (!input || !resultsEl || !hintEl) return;
+
+    var keyword = input.value.trim();
+    if (!keyword) {
+        hintEl.textContent = "请输入要搜索的收藏集名称。";
+        hintEl.classList.add("err");
+        resultsEl.innerHTML = "";
+        if (moreWrap) moreWrap.style.display = "none";
+        toggleSearchDropdown(true);
+        return;
+    }
+
+    if (reset || keyword !== searchState.keyword) {
+        searchState.keyword = keyword;
+        searchState.page = 1;
+        resultsEl.innerHTML = "";
+        if (moreWrap) moreWrap.style.display = "none";
+    }
+
+    searchState.loading = true;
+    hintEl.textContent = "正在搜索...";
+    hintEl.classList.remove("err");
+    toggleSearchDropdown(true);
+    if (btn) btn.disabled = true;
+    if (moreBtn) moreBtn.disabled = true;
+
+    try {
+        var url = API_BASE + "/api/search_collections?key_word=" + encodeURIComponent(searchState.keyword) + "&page=" + encodeURIComponent(searchState.page);
+        var res = await fetch(url);
+        var contentType = res.headers.get("Content-Type") || "";
+        if (contentType.indexOf("application/json") === -1) {
+            throw new Error("后端未返回 JSON，请刷新或重启后端服务");
+        }
+        var json = await res.json();
+        if (!res.ok || json.code !== 0) {
+            throw new Error(json.message || ("HTTP " + res.status));
+        }
+
+        var items = json.data || [];
+        if (!items.length) {
+            hintEl.textContent = searchState.page === 1 ? "未找到相关收藏集。" : "没有更多结果了。";
+            if (moreWrap) moreWrap.style.display = "none";
+            return;
+        }
+
+        renderSearchResults(items, searchState.page > 1);
+        hintEl.textContent = "找到 " + items.length + " 条结果，点击结果可直接查询。";
+        searchState.page += 1;
+        if (moreWrap) moreWrap.style.display = items.length >= 9 ? "block" : "none";
+    } catch (err) {
+        hintEl.textContent = "搜索失败：" + (err.message || String(err));
+        hintEl.classList.add("err");
+    } finally {
+        searchState.loading = false;
+        if (btn) btn.disabled = false;
+        if (moreBtn) moreBtn.disabled = false;
+    }
+}
+
+function renderSearchResults(items, append) {
+    var resultsEl = document.getElementById("search-results");
+    if (!resultsEl) return;
+    if (!append) resultsEl.innerHTML = "";
+
+    items.forEach(function (item) {
+        var card = document.createElement("button");
+        card.type = "button";
+        card.className = "search-item";
+        card.onclick = function () { selectSearchResult(item.act_id); };
+
+        var coverWrap = document.createElement("span");
+        coverWrap.className = "search-cover";
+        if (item.cover) {
+            var img = document.createElement("img");
+            img.src = API_BASE + "/api/proxy_img?url=" + encodeURIComponent(item.cover);
+            img.alt = item.name || item.act_id;
+            coverWrap.appendChild(img);
+        } else {
+            coverWrap.textContent = "🔎";
+        }
+
+        var info = document.createElement("span");
+        info.className = "search-info";
+        var name = document.createElement("span");
+        name.className = "search-name";
+        name.textContent = item.name || item.act_id;
+        var meta = document.createElement("span");
+        meta.className = "search-meta";
+        meta.textContent = "act_id: " + item.act_id;
+        info.appendChild(name);
+        info.appendChild(meta);
+
+        card.appendChild(coverWrap);
+        card.appendChild(info);
+        resultsEl.appendChild(card);
+    });
+}
+
+function selectSearchResult(actId) {
+    if (!actId) return;
+    var input = document.getElementById("act-id-input");
+    var existing = parseActIds(input.value);
+    if (existing.indexOf(String(actId)) === -1) existing.push(String(actId));
+    input.value = existing.join(", ");
+    toggleSearchDropdown(false);
+    switchInputTab("actid");
+    startFetch();
 }
 
 /* ============================================================
@@ -949,6 +1203,18 @@ function appendSingleBlock(container, coll) {
     header.appendChild(nameSpan);
     header.appendChild(subSpan);
 
+    const favCollBtn = document.createElement("button");
+    favCollBtn.type = "button";
+    favCollBtn.className = "fav-inline-btn" + (isCollectionFavorite(coll.actId) ? " active" : "");
+    favCollBtn.title = "收藏活动";
+    favCollBtn.textContent = "★";
+    favCollBtn.onclick = function (e) {
+        e.stopPropagation();
+        toggleCollectionFavorite(coll);
+        favCollBtn.classList.toggle("active", isCollectionFavorite(coll.actId));
+    };
+    header.appendChild(favCollBtn);
+
     // ── B站跳转链接 ──
     var link = document.createElement("a");
     link.className = "coll-link";
@@ -998,6 +1264,18 @@ function appendSingleBlock(container, coll) {
             nm.title = card.card_name;
             nm.textContent = card.card_name;
             top.appendChild(nm);
+
+            const favCardBtn = document.createElement("button");
+            favCardBtn.type = "button";
+            favCardBtn.className = "fav-card-btn" + (isCardFavorite(coll.actId, card.card_name) ? " active" : "");
+            favCardBtn.title = "收藏卡片";
+            favCardBtn.textContent = "★";
+            favCardBtn.onclick = function (e) {
+                e.stopPropagation();
+                toggleCardFavorite(coll, card);
+                favCardBtn.classList.toggle("active", isCardFavorite(coll.actId, card.card_name));
+            };
+            top.appendChild(favCardBtn);
 
             const tabs = document.createElement("div");
             tabs.className = "dl-tabs";
@@ -1691,6 +1969,7 @@ function clearAll() {
     window._pendingOpts = null;
     window._isPageFetching = false;
     window._batchSkippedCount = 0;
+    searchState.page = 1;
     setZipProgress('');
     updateActionButtons();
 }
@@ -2249,6 +2528,7 @@ async function startBatchScan() {
                 if (json.code === 0 && json.data) {
                     if (json.data.exists) {
                         found.push({ act_id: actId, name: json.data.name });
+                        saveAvailableActId(actId, json.data.name);
                     } else {
                         notFound.push(actId);
                     }
@@ -2304,6 +2584,101 @@ async function startBatchScan() {
         // Store found ids for fillFoundActIds
         window._batchFoundIds = found.map(function (f) { return f.act_id; });
     }
+}
+
+async function saveAvailableActId(actId, name) {
+    try {
+        await fetch(API_BASE + "/api/available_act_ids", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ act_id: String(actId), name: name || "" }),
+        });
+    } catch (_) { }
+}
+
+async function loadAvailableActIds() {
+    var resultsEl = document.getElementById("scan-results");
+    var hintEl = document.getElementById("scan-hint");
+    try {
+        var res = await fetch(API_BASE + "/api/available_act_ids");
+        var json = await res.json();
+        if (!res.ok || json.code !== 0) throw new Error(json.message || ("HTTP " + res.status));
+        var items = json.data || [];
+        window._batchFoundIds = items.map(function (item) { return String(item.act_id); });
+        renderScanResults(resultsEl, items, [], [], items.length);
+        hintEl.textContent = items.length ? "已加载本地记录，可点击标签追加 act_id。" : "本地还没有可用 act_id 记录。";
+    } catch (err) {
+        hintEl.textContent = "加载记录失败：" + (err.message || String(err));
+        hintEl.style.color = "#ff4d4f";
+    }
+}
+
+async function startPreviewScan() {
+    var startEl = document.getElementById("scan-preview-start");
+    var countEl = document.getElementById("scan-preview-count");
+    var btn = document.getElementById("btn-preview-scan");
+    var resultsEl = document.getElementById("scan-results");
+    var hintEl = document.getElementById("scan-hint");
+    var progressEl = document.getElementById("scan-progress");
+    var progBar = document.getElementById("scan-prog-bar");
+    var progText = document.getElementById("scan-prog-text");
+
+    var start = parseInt(startEl.value, 10);
+    var count = parseInt(countEl.value, 10);
+    if (isNaN(start) || isNaN(count) || start < 1 || count < 1) {
+        hintEl.textContent = "请输入有效的起始 act_id 和扫描数量。";
+        hintEl.style.color = "#ff4d4f";
+        return;
+    }
+
+    hintEl.style.color = "";
+    hintEl.textContent = "正在连续预览扫描...";
+    btn.disabled = true;
+    progressEl.style.display = "block";
+    resultsEl.innerHTML = "";
+    var found = [];
+    var notFound = [];
+    var errors = [];
+
+    for (var i = 0; i < count; i++) {
+        if (batchScanAbort) break;
+        var actId = start + i;
+        if (i > 0) await randomDelay(500, 1500);
+        try {
+            var res = await fetch(API_BASE + "/api/check_act_id?act_id=" + encodeURIComponent(actId));
+            var json = await res.json();
+            if (json.code === 0 && json.data && json.data.exists) {
+                var item = { act_id: actId, name: json.data.name };
+                found.push(item);
+                saveAvailableActId(actId, json.data.name);
+                appendPreviewScanItem(resultsEl, item);
+            } else {
+                notFound.push(actId);
+            }
+        } catch (_) {
+            errors.push(actId);
+        }
+        var pct = Math.round(((i + 1) / count) * 100);
+        progBar.style.width = pct + "%";
+        progText.textContent = "已扫描 " + (i + 1) + "/" + count + "，可用 " + found.length + " 个";
+    }
+
+    btn.disabled = false;
+    hintEl.textContent = "预览扫描完成，可用 " + found.length + " 个，已写入本地记录文件。";
+    window._batchFoundIds = found.map(function (item) { return item.act_id; });
+    if (!found.length) renderScanResults(resultsEl, found, notFound, errors, count);
+}
+
+function appendPreviewScanItem(container, item) {
+    var row = document.createElement("div");
+    row.className = "scan-preview-item";
+    row.innerHTML = '<span class="scan-preview-name">' + escHtml(item.name || String(item.act_id)) + '</span>' +
+        '<span class="scan-preview-id">act_id: ' + escHtml(String(item.act_id)) + '</span>';
+    row.onclick = function () {
+        document.getElementById("act-id-input").value = String(item.act_id);
+        startFetch();
+    };
+    container.appendChild(row);
 }
 
 function stopBatchScan() {
