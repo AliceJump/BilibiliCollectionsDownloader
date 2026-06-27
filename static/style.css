@@ -12,104 +12,143 @@
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Two-column layout ── */
-.app-layout {
-    display: flex;
-    min-height: 100vh;
-}
-
-/* ── Sidebar ── */
-.sidebar {
-    width: 240px;
-    flex-shrink: 0;
-    background: #fff;
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-}
-
-.sidebar-header {
+/* ── Floating history button ── */
+.hist-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 24px;
+    z-index: 1000;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: var(--pink);
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(251, 114, 153, 0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(135deg, #fb7299 0%, #ff9f8c 100%);
-    color: #fff;
-}
-
-.sidebar-logo {
-    font-size: 22px;
+    justify-content: center;
     line-height: 1;
 }
 
-.sidebar-title {
-    font-size: 14px;
-    font-weight: 700;
-    flex: 1;
+.hist-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 20px rgba(251, 114, 153, 0.5);
 }
 
-.sidebar-clear-btn {
+.hist-btn:active {
+    transform: scale(0.95);
+}
+
+/* ── History popup panel ── */
+.hist-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    background: rgba(0,0,0,0.3);
+    display: none;
+}
+
+.hist-overlay.show { display: block; }
+
+.hist-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 80px;
+    z-index: 999;
+    width: 320px;
+    max-height: 60vh;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hist-panel.show {
+    display: flex;
+}
+
+.hist-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #fb7299 0%, #ff9f8c 100%);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.hist-panel-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.hist-panel-clear,
+.hist-panel-close {
     background: rgba(255,255,255,0.2);
     border: none;
     border-radius: 4px;
     color: #fff;
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
     padding: 2px 6px;
-    line-height: 1;
-    transition: background 0.15s;
+    line-height: 1.4;
+    transition: background 0.12s;
 }
 
-.sidebar-clear-btn:hover {
+.hist-panel-clear:hover,
+.hist-panel-close:hover {
     background: rgba(255,255,255,0.35);
 }
 
-.sidebar-list {
+.hist-panel-body {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 6px;
+    max-height: 45vh;
 }
 
-.sidebar-empty {
+.hist-empty {
     text-align: center;
-    padding: 30px 12px;
+    padding: 28px 12px;
     font-size: 12px;
     color: var(--sub);
 }
 
-.sidebar-item {
+.hist-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.12s;
-    margin-bottom: 2px;
 }
 
-.sidebar-item:hover {
+.hist-item:hover {
     background: var(--pink-light);
 }
 
-.sidebar-item-icon {
+.hist-item-icon {
     font-size: 16px;
     flex-shrink: 0;
     line-height: 1;
 }
 
-.sidebar-item-info {
+.hist-item-info {
     flex: 1;
     min-width: 0;
     line-height: 1.3;
 }
 
-.sidebar-item-name {
+.hist-item-name {
     font-size: 12px;
     font-weight: 600;
     color: var(--text);
@@ -118,12 +157,12 @@
     white-space: nowrap;
 }
 
-.sidebar-item-id {
+.hist-item-id {
     font-size: 10px;
     color: var(--sub);
 }
 
-.sidebar-item-del {
+.hist-item-del {
     font-size: 12px;
     color: #ccc;
     cursor: pointer;
@@ -134,21 +173,9 @@
     flex-shrink: 0;
 }
 
-.sidebar-item-del:hover {
+.hist-item-del:hover {
     color: #ff4d4f;
     background: #fff2f0;
-}
-
-/* ── Main content ── */
-.main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.main-content header {
-    border-radius: 0;
 }
 
 *,

@@ -39,22 +39,31 @@ function clearHistory() {
     renderHistory();
 }
 
+function toggleHistory() {
+    var panel = document.getElementById("hist-panel");
+    var overlay = document.getElementById("hist-overlay");
+    var show = !panel.classList.contains("show");
+    panel.classList.toggle("show", show);
+    overlay.classList.toggle("show", show);
+    if (show) renderHistory();
+}
+
 function renderHistory() {
     var list = document.getElementById("history-list");
     if (!list) return;
     var items = getHistory();
     if (!items.length) {
-        list.innerHTML = '<div class="sidebar-empty">暂无查询记录</div>';
+        list.innerHTML = '<div class="hist-empty">暂无查询记录</div>';
         return;
     }
     list.innerHTML = items.map(function (item) {
-        return '<div class="sidebar-item" onclick="historyQuery(\'' + item.act_id + '\')">' +
-            '<span class="sidebar-item-icon">📦</span>' +
-            '<div class="sidebar-item-info">' +
-            '<div class="sidebar-item-name">' + escHtml(item.name) + '</div>' +
-            '<div class="sidebar-item-id">act_id: ' + item.act_id + '</div>' +
+        return '<div class="hist-item" onclick="historyQuery(\'' + item.act_id + '\')">' +
+            '<span class="hist-item-icon">📦</span>' +
+            '<div class="hist-item-info">' +
+            '<div class="hist-item-name">' + escHtml(item.name) + '</div>' +
+            '<div class="hist-item-id">act_id: ' + item.act_id + '</div>' +
             '</div>' +
-            '<span class="sidebar-item-del" onclick="event.stopPropagation();removeHistoryItem(\'' + item.act_id + '\')" title="删除">✕</span>' +
+            '<span class="hist-item-del" onclick="event.stopPropagation();removeHistoryItem(\'' + item.act_id + '\')" title="删除">✕</span>' +
             '</div>';
     }).join("");
 }
