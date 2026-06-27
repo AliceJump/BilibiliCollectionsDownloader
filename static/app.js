@@ -1822,39 +1822,23 @@ async function loadEmojiCard(card, bodyEl, coll, collBlock, emojiWrap) {
         var rawEmojis = await splitEmojiSheet(proxyUrl);
         if (!rawEmojis || rawEmojis.length === 0) throw new Error("无透明区域");
 
-        // 按尺寸分组（容差 5px）
-        function groupKey(w, h) {
-            return Math.round(w / 5) * 5 + "x" + Math.round(h / 5) * 5;
-        }
-        var groups = {};
+        // 筛选：去掉内部透明占比 > 70% 的表情
+        var emojis = [];
         rawEmojis.forEach(function (e) {
-            var key = groupKey(e.canvas.width, e.canvas.height);
-            if (!groups[key]) groups[key] = { w: e.canvas.width, h: e.canvas.height, items: [], count: 0 };
-            groups[key].items.push(e);
-            groups[key].count++;
+            var cvs = e.canvas;
+            var ctx = cvs.getContext("2d");
+            var imgData = ctx.getImageData(0, 0, cvs.width, cvs.height);
+            var px = imgData.data;
+            var total = cvs.width * cvs.height;
+            var transparent = 0;
+            for (var pi = 3; pi < px.length; pi += 4) {
+                if (px[pi] < 30) transparent++;
+            }
+            if (transparent / total < 0.7) {
+                emojis.push(e);
+            }
         });
-
-        // 取 width × count 最大的组
-        var bestGroup = null, bestScore = 0;
-        for (var gk in groups) {
-            var g = groups[gk];
-            var score = g.w * g.count;
-            if (score > bestScore) { bestScore = score; bestGroup = g; }
-        }
-        if (!bestGroup || bestGroup.count < 3) throw new Error("无有效表情分组");
-
-        var emojis = bestGroup.items;
-
-        // 判断是否几乎占满原图 = 普通图片
-        var imgTest = new Image();
-        imgTest.crossOrigin = "anonymous";
-        await new Promise(function (resolve, reject) {
-            imgTest.onload = resolve; imgTest.onerror = reject;
-            imgTest.src = proxyUrl;
-        });
-        var totalArea = imgTest.width * imgTest.height;
-        var firstArea = emojis[0].canvas.width * emojis[0].canvas.height;
-        if (emojis.length <= 2 && firstArea / totalArea > 0.7) throw new Error("无有效透明区域");
+        if (emojis.length < 3) throw new Error("有效表情不足");
 
         // 成功！隐藏表情包卡片，改为在收藏集块上添加徽标
         emojiWrap.style.display = "none";
