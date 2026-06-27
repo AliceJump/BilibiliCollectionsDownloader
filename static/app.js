@@ -1632,22 +1632,30 @@ function clearAll() {
     setZipProgress('');
     updateActionButtons();
 }
+var _zipProgressTimer = null;
+
 function setZipProgress(text, isError) {
-    // 顶部通知
-    var notice = document.getElementById("top-notice");
-    var noticeText = document.getElementById("top-notice-text");
-    if (text) {
-        notice.style.display = "block";
-        notice.classList.toggle("err", !!isError);
-        noticeText.textContent = text;
-    } else {
-        notice.style.display = "none";
-    }
     // 下载浮窗内状态
     var statusEl = document.getElementById("dl-panel-status");
     if (statusEl) {
         statusEl.textContent = text || "";
         statusEl.style.color = isError ? "#ff4d4f" : "var(--sub)";
+    }
+    // 顶部浮窗通知
+    var notice = document.getElementById("top-notice");
+    var noticeText = document.getElementById("top-notice-text");
+    if (_zipProgressTimer) { clearTimeout(_zipProgressTimer); _zipProgressTimer = null; }
+    if (text) {
+        noticeText.textContent = text;
+        notice.classList.toggle("err", !!isError);
+        notice.classList.add("show");
+        // 2.5 秒后自动消失
+        _zipProgressTimer = setTimeout(function () {
+            notice.classList.remove("show");
+            _zipProgressTimer = null;
+        }, 2500);
+    } else {
+        notice.classList.remove("show");
     }
 }
 
