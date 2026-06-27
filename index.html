@@ -38,157 +38,162 @@
 </head>
 
 <body>
-    <header>
-        <div class="logo">📦</div>
-        <div>
-            <h1>B 站收藏集下载器</h1>
-            <div class="sub">输入 act_id 或上传二维码图片</div>
-        </div>
-        <a class="header-github" href="https://github.com/AliceJump/BilibiliCollectionsDownloader" target="_blank"
-            rel="noopener" title="GitHub 仓库">
-            <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
-                <path
-                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-            </svg>
-        </a>
-    </header>
-
-    <div class="wrap">
-        <!-- ─── Input card ─── -->
-        <div class="card">
-            <div class="card-title">🔍 按 act_id 查询</div>
-
-            <div class="id-row">
-                <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
+    <div class="app-layout">
+        <!-- ─── 左侧历史边栏 ─── -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">查询历史</div>
+                <button class="sidebar-clear-btn" id="btn-history-clear" onclick="clearHistory()" title="清空历史">🗑️</button>
             </div>
-            <div class="hint">
-                💡 支持多个 act_id，用英文逗号分隔，例：<code>112727,112728,112729</code><br />
-                也可粘贴含 <code>act_id</code> 的完整链接、b23.tv 短链接、<br />
-                或 <code>blackboard/activity?type=dlc&id=xxx</code> 格式的活动链接。
+            <div class="sidebar-list" id="history-list">
+                <div class="sidebar-empty">暂无查询记录</div>
             </div>
+        </aside>
 
-            <!-- QR upload section -->
-            <div class="qr-section">
-                <div class="qr-label">📷 或上传二维码图片</div>
-                <div class="qr-zone" id="qr-zone">
-                    <input type="file" id="qr-input" accept="image/*" multiple />
-                    <div class="icon">🖼️</div>
-                    <p>
-                        点击选择或拖放二维码图片<br /><small>支持 JPG / PNG，可多选；识别成功后自动填入 act_id 并查询</small>
-                    </p>
+        <!-- ─── 右侧主内容 ─── -->
+        <main class="main-content">
+            <header>
+                <div class="logo">📦</div>
+                <div>
+                    <h1>B 站收藏集下载器</h1>
+                    <div class="sub">输入 act_id 或从左侧历史点击重新查询</div>
                 </div>
-                <div class="qr-thumbs" id="qr-thumbs"></div>
-            </div>
+                <a class="header-github" href="https://github.com/AliceJump/BilibiliCollectionsDownloader" target="_blank"
+                    rel="noopener" title="GitHub 仓库">
+                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                    </svg>
+                </a>
+            </header>
 
-            <!-- ─── Batch scan ─── -->
-            <div class="scan-section">
-                <div class="scan-title">🔎 批量扫描 act_id</div>
-                <div class="scan-row">
-                    <span class="scan-label">范围：</span>
-                    <input type="number" id="scan-start" class="scan-input" placeholder="起始 act_id" min="1" />
-                    <span class="scan-sep">—</span>
-                    <input type="number" id="scan-end" class="scan-input" placeholder="结束 act_id" min="1" />
-                    <span class="scan-label" style="margin-left:8px;font-size:11px;color:var(--sub);">间隔 0.5~1.5s</span>
-                    <button class="btn btn-primary" id="btn-scan" onclick="startBatchScan()">
-                        🚀 开始扫描
-                    </button>
-                    <button class="btn btn-ghost" id="btn-scan-stop" onclick="stopBatchScan()"
-                        style="display:none;font-size:12px;padding:5px 12px;">
-                        ⏹ 停止
-                    </button>
-                </div>
-                <div class="scan-hint" id="scan-hint">输入起始和结束 act_id，批量检查哪些 act_id 存在有效的收藏集。<br /><small
-                        style="color:var(--sub);">⚠️ 需要配置 B 站 Cookie 才能使用此功能</small></div>
-                <!-- Scan progress -->
-                <div class="scan-progress" id="scan-progress" style="display:none;">
-                    <div class="scan-prog-bar-bg">
-                        <div class="scan-prog-bar" id="scan-prog-bar"></div>
+            <div class="wrap">
+                <!-- ─── Input card ─── -->
+                <div class="card">
+                    <div class="card-title">🔍 按 act_id 查询</div>
+
+                    <div class="id-row">
+                        <input type="text" id="act-id-input" placeholder="输入 act_id，例：13688" />
                     </div>
-                    <div class="scan-prog-text" id="scan-prog-text">准备中…</div>
-                </div>
-                <!-- Scan results -->
-                <div class="scan-results" id="scan-results"></div>
-            </div>
-
-            <!-- Options -->
-            <div class="opts-row">
-                <span class="opts-label">下载内容：</span>
-                <div class="chk-grp">
-                    <label class="chk-label"><input type="checkbox" id="opt-img" checked /> 🖼️ 图片</label>
-                    <label class="chk-label"><input type="checkbox" id="opt-vid" checked /> 🎬
-                        无水印视频</label>
-                    <label class="chk-label"><input type="checkbox" id="opt-wm" checked /> 💧
-                        带水印视频</label>
-                </div>
-            </div>
-
-            <div class="actions">
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button class="btn btn-primary" id="btn-start" onclick="startFetch()">
-                        🚀 获取下载链接
-                    </button>
-                    <button class="btn btn-share" id="btn-share" onclick="doShare()">
-                        🔗 分享
-                    </button>
-                    <button class="btn btn-ghost" id="btn-clear" onclick="clearAll()">🗑️ 清空</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ─── Progress ─── -->
-        <div class="card prog-wrap" id="prog-wrap">
-            <div class="card-title">⏳ 处理中…</div>
-            <div class="prog-bar-bg">
-                <div class="prog-bar" id="prog-bar"></div>
-            </div>
-            <div class="prog-text" id="prog-text">正在获取数据…</div>
-        </div>
-
-        <!-- ─── Results ─── -->
-        <div class="results-wrap" id="results-wrap">
-            <div class="result-hdr">
-                <div class="card-title" style="margin: 0">📋 下载结果</div>
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <div id="dl-type-chks" style="display: none; gap: 8px">
-                        <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
-                        <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
-                        <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
+                    <div class="hint">
+                        💡 支持多个 act_id，用英文逗号分隔，例：<code>112727,112728,112729</code><br />
+                        也可粘贴含 <code>act_id</code> 的完整链接、b23.tv 短链接、<br />
+                        或 <code>blackboard/activity?type=dlc&id=xxx</code> 格式的活动链接。
                     </div>
-                    <button class="btn btn-green" id="btn-dl-all" style="display: none" onclick="downloadAll()">
-                        ⬇️ 下载全部
-                    </button>
+
+                    <!-- QR upload section -->
+                    <div class="qr-section">
+                        <div class="qr-label">📷 或上传二维码图片</div>
+                        <div class="qr-zone" id="qr-zone">
+                            <input type="file" id="qr-input" accept="image/*" multiple />
+                            <div class="icon">🖼️</div>
+                            <p>
+                                点击选择或拖放二维码图片<br /><small>支持 JPG / PNG，可多选；识别成功后自动填入 act_id 并查询</small>
+                            </p>
+                        </div>
+                        <div class="qr-thumbs" id="qr-thumbs"></div>
+                    </div>
+
+                    <!-- ─── Batch scan ─── -->
+                    <div class="scan-section">
+                        <div class="scan-title">🔎 批量扫描 act_id</div>
+                        <div class="scan-row">
+                            <span class="scan-label">范围：</span>
+                            <input type="number" id="scan-start" class="scan-input" placeholder="起始" min="1" />
+                            <span class="scan-sep">—</span>
+                            <input type="number" id="scan-end" class="scan-input" placeholder="结束" min="1" />
+                            <span class="scan-label" style="margin-left:4px;font-size:11px;color:var(--sub);">间隔 0.5~1.5s</span>
+                            <button class="btn btn-primary" id="btn-scan" onclick="startBatchScan()">
+                                🚀 扫描
+                            </button>
+                            <button class="btn btn-ghost" id="btn-scan-stop" onclick="stopBatchScan()"
+                                style="display:none;font-size:12px;padding:5px 12px;">
+                                ⏹ 停止
+                            </button>
+                        </div>
+                        <div class="scan-hint" id="scan-hint">输入起始和结束 act_id，批量检查哪些存在有效的收藏集。<br /><small
+                                style="color:var(--sub);">⚠️ 需要配置 B 站 Cookie 才能使用此功能</small></div>
+                        <div class="scan-progress" id="scan-progress" style="display:none;">
+                            <div class="scan-prog-bar-bg">
+                                <div class="scan-prog-bar" id="scan-prog-bar"></div>
+                            </div>
+                            <div class="scan-prog-text" id="scan-prog-text">准备中…</div>
+                        </div>
+                        <div class="scan-results" id="scan-results"></div>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="opts-row">
+                        <span class="opts-label">下载内容：</span>
+                        <div class="chk-grp">
+                            <label class="chk-label"><input type="checkbox" id="opt-img" checked /> 🖼️ 图片</label>
+                            <label class="chk-label"><input type="checkbox" id="opt-vid" checked /> 🎬 无水印视频</label>
+                            <label class="chk-label"><input type="checkbox" id="opt-wm" checked /> 💧 带水印视频</label>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-primary" id="btn-start" onclick="startFetch()">
+                                🚀 获取下载链接
+                            </button>
+                            <button class="btn btn-share" id="btn-share" onclick="doShare()">
+                                🔗 分享
+                            </button>
+                            <button class="btn btn-ghost" id="btn-clear" onclick="clearAll()">🗑️ 清空</button>
+                        </div>
+                    </div>
                 </div>
-                <div id="zip-progress-text" style="
-                  font-size: 12px;
-                  color: #888;
-                  min-height: 18px;
-                  text-align: right;
-                "></div>
+
+                <!-- ─── Progress ─── -->
+                <div class="card prog-wrap" id="prog-wrap">
+                    <div class="card-title">⏳ 处理中…</div>
+                    <div class="prog-bar-bg">
+                        <div class="prog-bar" id="prog-bar"></div>
+                    </div>
+                    <div class="prog-text" id="prog-text">正在获取数据…</div>
+                </div>
+
+                <!-- ─── Results ─── -->
+                <div class="results-wrap" id="results-wrap">
+                    <div class="result-hdr">
+                        <div class="card-title" style="margin: 0">📋 下载结果</div>
+                        <div style="display: flex; align-items: center; gap: 10px">
+                            <div id="dl-type-chks" style="display: none; gap: 8px">
+                                <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
+                                <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
+                                <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
+                            </div>
+                            <button class="btn btn-green" id="btn-dl-all" style="display: none" onclick="downloadAll()">
+                                ⬇️ 下载全部
+                            </button>
+                        </div>
+                        <div id="zip-progress-text" style="font-size:12px;color:#888;min-height:18px;text-align:right;"></div>
+                    </div>
+                    <div id="alerts"></div>
+                    <div id="results-body"></div>
+                    <div class="pagination" id="pagination" style="display:none;">
+                        <button class="btn btn-ghost" id="btn-page-prev" onclick="prevPage()" disabled>◀ 上一页</button>
+                        <span class="page-info" id="page-info">第 1 页</span>
+                        <button class="btn btn-primary" id="btn-page-next" onclick="nextPage()">下一页 ▶</button>
+                    </div>
+                </div>
             </div>
-            <div id="alerts"></div>
-            <div id="results-body"></div>
-            <!-- 分页导航 -->
-            <div class="pagination" id="pagination" style="display:none;">
-                <button class="btn btn-ghost" id="btn-page-prev" onclick="prevPage()" disabled>◀ 上一页</button>
-                <span class="page-info" id="page-info">第 1 页</span>
-                <button class="btn btn-primary" id="btn-page-next" onclick="nextPage()">下一页 ▶</button>
-            </div>
-        </div>
+
+            <footer>
+                B 站收藏集下载器 · 仅供学习研究，请遵守版权和用户协议
+                ·
+                <a href="https://github.com/AliceJump/BilibiliCollectionsDownloader" target="_blank" rel="noopener"
+                    style="color:inherit;text-decoration:none;">
+                    <svg style="width:14px;height:14px;vertical-align:-2px;fill:currentColor" viewBox="0 0 16 16"
+                        aria-hidden="true">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                    </svg>
+                    GitHub
+                </a>
+            </footer>
+        </main>
     </div>
-
-    <footer>
-        B 站收藏集下载器 · 仅供学习研究，请遵守版权和用户协议
-        ·
-        <a href="https://github.com/AliceJump/BilibiliCollectionsDownloader" target="_blank" rel="noopener"
-            style="color:inherit;text-decoration:none;">
-            <svg style="width:14px;height:14px;vertical-align:-2px;fill:currentColor" viewBox="0 0 16 16"
-                aria-hidden="true">
-                <path
-                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-            </svg>
-            GitHub
-        </a>
-    </footer>
 
     <!-- Toast 提示 -->
     <div class="toast" id="toast"></div>

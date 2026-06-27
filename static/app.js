@@ -9,6 +9,62 @@ const state = {
 };
 
 /* ============================================================
+   History (localStorage)
+   ============================================================ */
+function getHistory() {
+    try {
+        return JSON.parse(localStorage.getItem("bili_history") || "[]");
+    } catch (_) { return []; }
+}
+
+function saveHistory(act_id, name) {
+    var items = getHistory();
+    // Remove duplicate if exists
+    items = items.filter(function (i) { return i.act_id !== act_id; });
+    items.unshift({ act_id: act_id, name: name || act_id, time: Date.now() });
+    // Keep max 100
+    if (items.length > 100) items = items.slice(0, 100);
+    localStorage.setItem("bili_history", JSON.stringify(items));
+    renderHistory();
+}
+
+function removeHistoryItem(act_id) {
+    var items = getHistory().filter(function (i) { return i.act_id !== act_id; });
+    localStorage.setItem("bili_history", JSON.stringify(items));
+    renderHistory();
+}
+
+function clearHistory() {
+    localStorage.removeItem("bili_history");
+    renderHistory();
+}
+
+function renderHistory() {
+    var list = document.getElementById("history-list");
+    if (!list) return;
+    var items = getHistory();
+    if (!items.length) {
+        list.innerHTML = '<div class="sidebar-empty">暂无查询记录</div>';
+        return;
+    }
+    list.innerHTML = items.map(function (item) {
+        return '<div class="sidebar-item" onclick="historyQuery(\'' + item.act_id + '\')">' +
+            '<span class="sidebar-item-icon">📦</span>' +
+            '<div class="sidebar-item-info">' +
+            '<div class="sidebar-item-name">' + escHtml(item.name) + '</div>' +
+            '<div class="sidebar-item-id">act_id: ' + item.act_id + '</div>' +
+            '</div>' +
+            '<span class="sidebar-item-del" onclick="event.stopPropagation();removeHistoryItem(\'' + item.act_id + '\')" title="删除">✕</span>' +
+            '</div>';
+    }).join("");
+}
+
+function historyQuery(act_id) {
+    document.getElementById("act-id-input").value = act_id;
+    startFetch();
+}
+
+/* ============================================================
    Pagination state
    ============================================================ */
 const PAGE_CARD_LIMIT = 200; // 每页卡牌数量阈值
@@ -1151,6 +1207,15 @@ async function continueFetch() {
             state.successActIds++;
             if (!window._succeededActIds) window._succeededActIds = new Set();
             window._succeededActIds.add(actId);
+            // 保存到查询历史（取第一个成功集合的名称）
+            var firstName = "";
+            for (var si = 0; si < newCollectionsForAct.length; si++) {
+                if (newCollectionsForAct[si].name) {
+                    firstName = newCollectionsForAct[si].name;
+                    break;
+                }
+            }
+            saveHistory(actId, firstName || actId);
         }
 
         // ── 立即显示刚加载的收藏集 ──
@@ -1613,11 +1678,17 @@ function autoStartFromUrl() {
 }
 
 // DOMContentLoaded may have already fired (app.js is dynamically loaded)
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", autoStartFromUrl);
-} else {
-    autoStartFromUrl();
+function onReady(fn) {
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", fn);
+    } else {
+        fn();
+    }
 }
+onReady(function () {
+    autoStartFromUrl();
+    renderHistory();
+});
 
 /* ============================================================
    Batch Scan: check a range of act_ids for existence
