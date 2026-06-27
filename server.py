@@ -45,7 +45,7 @@ if not BILI_COOKIES["SESSDATA"]:
     cookie_file = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "configs",
-    ".bili_cookies.json"
+    "bili_cookies.json"
 )
     if os.path.exists(cookie_file):
         try:
@@ -325,9 +325,14 @@ def get_lottery_params_by_act_id(act_id):
             if not isinstance(lottery, dict):
                 continue
             lot_id = lottery.get("lottery_id")
+            goods_id = lottery.get("goods_id") or ""
             if lot_id:
-                params_list.append({"act_id": str(act_id), "lottery_id": str(lot_id)})
-                LOGGER.info(f"提取参数: act_id={act_id}, lottery_id={lot_id}")
+                params_list.append({
+                    "act_id": str(act_id),
+                    "lottery_id": str(lot_id),
+                    "goods_id": str(goods_id),
+                })
+                LOGGER.info(f"提取参数: act_id={act_id}, lottery_id={lot_id}, goods_id={goods_id}")
 
         if not params_list:
             return None, "返回数据中未包含有效的 lottery_id"
@@ -416,7 +421,8 @@ def index():
 def fetch():
     act_id = request.args.get("act_id", "").strip()
     lottery_id = request.args.get("lottery_id", "").strip()
-    LOGGER.info(f"/api/fetch 收到请求: act_id={act_id!r}, lottery_id={lottery_id!r}")
+    goods_id = request.args.get("goods_id", "").strip()
+    LOGGER.info(f"/api/fetch 收到请求: act_id={act_id!r}, lottery_id={lottery_id!r}, goods_id={goods_id!r}")
 
     if not act_id or not lottery_id:
         LOGGER.warning("缺少参数 act_id 或 lottery_id")
@@ -435,6 +441,17 @@ def fetch():
             Api(**api).update_params(act_id=int(act_id), lottery_id=int(lottery_id)).result
         )
         LOGGER.info(f"收藏集详情获取成功: act_id={act_id}, lottery_id={lottery_id}")
+
+        # 如果提供了 goods_id，尝试获取表情包等附加资源
+        if goods_id and goods_id.isdigit():
+            try:
+                emoji_items = _fetch_suit_components(int(goods_id))
+                if emoji_items:
+                    data["_emoji_packages"] = emoji_items
+                    LOGGER.info(f"获取到 {len(emoji_items)} 个表情包: act_id={act_id}")
+            except Exception as emoji_err:
+                LOGGER.warning(f"获取表情包失败(不影响主数据): {emoji_err}")
+
         return jsonify({"code": 0, "message": "0", "data": data})
     except ResponseCodeException as e:
         LOGGER.error(f"B站API错误 (act_id={act_id}, lottery_id={lottery_id}): code={e.code}, msg={e.msg}")

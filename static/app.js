@@ -185,10 +185,10 @@ function processQrFiles(files) {
 /* ============================================================
    API
    ============================================================ */
-async function fetchCollection(act_id, lottery_id) {
-    const res = await fetch(
-        `${API_BASE}/api/fetch?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`,
-    );
+async function fetchCollection(act_id, lottery_id, goods_id) {
+    var url = `${API_BASE}/api/fetch?act_id=${encodeURIComponent(act_id)}&lottery_id=${encodeURIComponent(lottery_id)}`;
+    if (goods_id) url += `&goods_id=${encodeURIComponent(goods_id)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
 }
@@ -361,6 +361,42 @@ function parseData(data, opts) {
                 cls: "dl-a-img",
                 ext: url.match(/\.webp$/i) ? "webp" : "png",
             });
+        });
+    }
+
+    // Process _emoji_packages — emoji packages fetched via suit/benefit API
+    var emojiPkgs = data._emoji_packages;
+    if (emojiPkgs && Array.isArray(emojiPkgs) && emojiPkgs.length) {
+        emojiPkgs.forEach(function (emo) {
+            if (!emo || !emo.name) return;
+            var emoKey = "😊 " + emo.name;
+            if (!map.has(emoKey)) map.set(emoKey, { card_name: emoKey, links: [] });
+            var entry = map.get(emoKey);
+            var images = emo.images || {};
+            if (opts.img && images.static) {
+                entry.links.push({
+                    url: images.static,
+                    label: "🖼️ 静态",
+                    cls: "dl-a-img",
+                    ext: "png",
+                });
+            }
+            if (opts.img && images.gif) {
+                entry.links.push({
+                    url: images.gif,
+                    label: "🎞️ GIF",
+                    cls: "dl-a-img",
+                    ext: "gif",
+                });
+            }
+            if (opts.img && images.webp) {
+                entry.links.push({
+                    url: images.webp,
+                    label: "🖼️ WebP",
+                    cls: "dl-a-img",
+                    ext: "webp",
+                });
+            }
         });
     }
 
@@ -1115,7 +1151,7 @@ async function continueFetch() {
             setProgress(Math.round(subProgress), "正在获取 act_id=" + p.act_id + " lottery_id=" + p.lottery_id + " (" + (doneSoFar + 1) + "/" + totalSteps + ")…");
 
             try {
-                var fetchJson = await fetchCollection(p.act_id, p.lottery_id);
+                var fetchJson = await fetchCollection(p.act_id, p.lottery_id, p.goods_id);
                 if (fetchJson.code !== 0) {
                     addAlert("alert-err", "❌ 收藏集获取失败 (act_id=" + escHtml(p.act_id) + "): " + escHtml(String(fetchJson.message || fetchJson.code)));
                 } else {
