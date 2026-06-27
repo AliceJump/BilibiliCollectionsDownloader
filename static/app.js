@@ -864,7 +864,9 @@ function appendSingleBlock(container, coll) {
     block.appendChild(header);
     block.appendChild(body);
 
+    var collapseTimer = null;
     const toggleCollapse = function () {
+        if (collapseTimer) { clearTimeout(collapseTimer); collapseTimer = null; }
         var wasClosed = body.classList.contains("closed");
         if (wasClosed) {
             body.style.maxHeight = body.scrollHeight + "px";
@@ -872,6 +874,11 @@ function appendSingleBlock(container, coll) {
             toggle.classList.remove("collapsed");
             header.classList.remove("collapsed");
             header.setAttribute("aria-expanded", "true");
+            // 过渡结束后移除固定 max-height，内容变化时不会被裁剪
+            collapseTimer = setTimeout(function () {
+                body.style.maxHeight = "";
+                collapseTimer = null;
+            }, 360);
         } else {
             body.style.maxHeight = body.scrollHeight + "px";
             void body.offsetHeight;
@@ -886,9 +893,6 @@ function appendSingleBlock(container, coll) {
     collapseBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleCollapse(); });
 
     container.appendChild(block);
-
-    void block.offsetHeight;
-    body.style.maxHeight = body.scrollHeight + "px";
 }
 
 /* ============================================================
