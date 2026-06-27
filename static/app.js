@@ -336,34 +336,6 @@ function parseData(data, opts) {
         });
     }
 
-    // Process act_rights_infos — rights / entitlements with resource images
-    var rights = data.act_rights_infos;
-    if (rights && Array.isArray(rights) && opts.img) {
-        var rightsLabelMap = {
-            1: "装扮",
-            2: "评论背景",
-            3: "动态卡片",
-            4: "头像挂件",
-            5: "加载logo",
-            6: "空间图",
-            7: "粉丝勋章",
-        };
-        rights.forEach(function (r, idx) {
-            if (!r) return;
-            var url = (r.resource || "").split("@")[0]; // remove crop params
-            if (!url) return;
-            var typeLabel = rightsLabelMap[r.rights_type] || ("权益" + r.rights_type);
-            var key = "🔑 " + typeLabel;
-            if (!map.has(key)) map.set(key, { card_name: key, links: [] });
-            map.get(key).links.push({
-                url: url,
-                label: "🖼️",
-                cls: "dl-a-img",
-                ext: url.match(/\.webp$/i) ? "webp" : "png",
-            });
-        });
-    }
-
     // Process _emoji_packages — emoji packages fetched via suit/benefit API
     var emojiPkgs = data._emoji_packages;
     if (emojiPkgs && Array.isArray(emojiPkgs) && emojiPkgs.length) {
