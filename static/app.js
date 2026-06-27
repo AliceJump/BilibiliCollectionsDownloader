@@ -39,6 +39,15 @@ function clearHistory() {
     renderHistory();
 }
 
+function toggleScan() {
+    var panel = document.getElementById("scan-panel");
+    var overlay = document.getElementById("scan-overlay");
+    var show = !panel.classList.contains("show");
+    panel.classList.toggle("show", show);
+    overlay.classList.toggle("show", show);
+    if (show) renderHistory();
+}
+
 function toggleHistory() {
     var panel = document.getElementById("hist-panel");
     var overlay = document.getElementById("hist-overlay");
@@ -682,8 +691,8 @@ function renderResults(collections) {
     }
 
     if (state.allLinks.length > 0) {
+        document.getElementById("dl-bar").style.display = "flex";
         document.getElementById("btn-dl-all").style.display = "inline-flex";
-        document.getElementById("dl-type-chks").style.display = "flex";
         // 默认与上方选项同步
         document.getElementById("dl-chk-img").checked =
             document.getElementById("opt-img").checked;
@@ -691,8 +700,6 @@ function renderResults(collections) {
             document.getElementById("opt-vid").checked;
         document.getElementById("dl-chk-wm").checked =
             document.getElementById("opt-wm").checked;
-    } else {
-        document.getElementById("dl-type-chks").style.display = "none";
     }
 
     updateActionButtons();
@@ -1112,6 +1119,7 @@ async function startFetch() {
     document.getElementById("results-wrap").classList.add("on");
     clearAlerts();
     // 不清空 results-body，已有内容保留
+    document.getElementById("dl-bar").style.display = "none";
     document.getElementById("btn-dl-all").style.display = "none";
     document.getElementById("pagination").style.display = "none";
 
@@ -1290,16 +1298,14 @@ async function continueFetch() {
 
     // 显示/隐藏下载全部按钮
     if (state.allLinks.length > 0) {
+        document.getElementById("dl-bar").style.display = "flex";
         document.getElementById("btn-dl-all").style.display = "inline-flex";
-        document.getElementById("dl-type-chks").style.display = "flex";
         document.getElementById("dl-chk-img").checked =
             document.getElementById("opt-img").checked;
         document.getElementById("dl-chk-vid").checked =
             document.getElementById("opt-vid").checked;
         document.getElementById("dl-chk-wm").checked =
             document.getElementById("opt-wm").checked;
-    } else {
-        document.getElementById("dl-type-chks").style.display = "none";
     }
 
     updatePaginationUI();
@@ -1599,6 +1605,7 @@ function clearAll() {
     document.getElementById("results-body").innerHTML = "";
     document.getElementById("alerts").innerHTML = "";
     document.getElementById("results-wrap").classList.remove("on");
+    document.getElementById("dl-bar").style.display = "none";
     document.getElementById("btn-dl-all").style.display = "none";
     document.getElementById("pagination").style.display = "none";
     hideProgress();

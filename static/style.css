@@ -12,6 +12,75 @@
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
+/* ── Floating action buttons (scan) ── */
+.fab-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 80px;
+    z-index: 1000;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: #fff;
+    color: var(--text);
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.fab-btn:hover { transform: scale(1.08); box-shadow: 0 5px 18px rgba(0,0,0,0.18); }
+.fab-btn:active { transform: scale(0.95); }
+
+.fab-overlay {
+    position: fixed; inset: 0; z-index: 998;
+    background: rgba(0,0,0,0.3); display: none;
+}
+.fab-overlay.show { display: block; }
+
+.fab-panel {
+    position: fixed; right: 20px; bottom: 132px;
+    z-index: 999; width: 340px;
+    max-height: 70vh; background: #fff;
+    border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    display: none; flex-direction: column; overflow: hidden;
+}
+.fab-panel.show { display: flex; }
+
+.fab-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #fb7299 0%, #ff9f8c 100%);
+    color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.fab-panel-actions { display: flex; gap: 6px; }
+.fab-panel-btn {
+    background: rgba(255,255,255,0.2); border: none; border-radius: 4px;
+    color: #fff; font-size: 13px; cursor: pointer; padding: 2px 6px;
+    line-height: 1.4; transition: background 0.12s;
+}
+.fab-panel-btn:hover { background: rgba(255,255,255,0.35); }
+.fab-panel-body { padding: 12px; overflow-y: auto; max-height: 60vh; }
+
+/* ── Floating download bar ── */
+.dl-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 999;
+    background: #fff; border-top: 1.5px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    padding: 10px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+}
+.dl-bar-left { display: flex; align-items: center; gap: 10px; }
+.dl-bar-right { display: flex; align-items: center; gap: 10px; }
+.dl-bar-chks { display: flex; gap: 8px; }
+.dl-bar-prog { font-size: 11px; color: var(--sub); min-width: 60px; }
+
 /* ── Floating history button ── */
 .hist-btn {
     position: fixed;
@@ -238,7 +307,7 @@ header .sub {
 .wrap {
     max-width: 860px;
     margin: 28px auto;
-    padding: 0 18px 60px;
+    padding: 0 18px 80px;
 }
 
 /* ── Card ── */

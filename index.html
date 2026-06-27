@@ -54,6 +54,53 @@
     </div>
     <div class="hist-overlay" id="hist-overlay" onclick="toggleHistory()"></div>
 
+    <!-- ─── 批量扫描浮窗 ─── -->
+    <button class="fab-btn" id="scan-fab" onclick="toggleScan()" title="批量扫描 act_id">🔎</button>
+    <div class="fab-panel" id="scan-panel">
+        <div class="fab-panel-header">
+            <span>🔎 批量扫描 act_id</span>
+            <div class="fab-panel-actions">
+                <button class="fab-panel-btn" onclick="toggleScan()" title="关闭">✕</button>
+            </div>
+        </div>
+        <div class="fab-panel-body">
+            <div class="scan-row">
+                <span class="scan-label">范围：</span>
+                <input type="number" id="scan-start" class="scan-input" placeholder="起始" min="1" />
+                <span class="scan-sep">—</span>
+                <input type="number" id="scan-end" class="scan-input" placeholder="结束" min="1" />
+            </div>
+            <div style="font-size:11px;color:var(--sub);margin:4px 0 8px;">间隔 0.5~1.5s ｜ ⚠️ 需要 Cookie</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px;">
+                <button class="btn btn-primary" id="btn-scan" onclick="startBatchScan()" style="font-size:12px;padding:7px 16px;">🚀 开始扫描</button>
+                <button class="btn btn-ghost" id="btn-scan-stop" onclick="stopBatchScan()" style="display:none;font-size:12px;padding:7px 16px;">⏹ 停止</button>
+            </div>
+            <div class="scan-hint" id="scan-hint" style="font-size:11px;"></div>
+            <div class="scan-progress" id="scan-progress" style="display:none;">
+                <div class="scan-prog-bar-bg"><div class="scan-prog-bar" id="scan-prog-bar"></div></div>
+                <div class="scan-prog-text" id="scan-prog-text" style="font-size:11px;">准备中…</div>
+            </div>
+            <div class="scan-results" id="scan-results"></div>
+        </div>
+    </div>
+    <div class="fab-overlay" id="scan-overlay" onclick="toggleScan()"></div>
+
+    <!-- ─── 浮动下载栏 ─── -->
+    <div class="dl-bar" id="dl-bar" style="display:none;">
+        <div class="dl-bar-left">
+            <span style="font-size:12px;font-weight:600;color:var(--text);">⬇️ 下载</span>
+            <div class="dl-bar-chks">
+                <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
+                <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
+                <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
+            </div>
+        </div>
+        <div class="dl-bar-right">
+            <span class="dl-bar-prog" id="zip-progress-text"></span>
+            <button class="btn btn-green" id="btn-dl-all" onclick="downloadAll()" style="display:none;font-size:12px;padding:6px 14px;">⬇️ 下载全部</button>
+        </div>
+    </div>
+
     <!-- ─── 主内容 ─── -->
     <header>
         <div class="logo">📦</div>
@@ -96,33 +143,7 @@
                         <div class="qr-thumbs" id="qr-thumbs"></div>
                     </div>
 
-                    <!-- ─── Batch scan ─── -->
-                    <div class="scan-section">
-                        <div class="scan-title">🔎 批量扫描 act_id</div>
-                        <div class="scan-row">
-                            <span class="scan-label">范围：</span>
-                            <input type="number" id="scan-start" class="scan-input" placeholder="起始" min="1" />
-                            <span class="scan-sep">—</span>
-                            <input type="number" id="scan-end" class="scan-input" placeholder="结束" min="1" />
-                            <span class="scan-label" style="margin-left:4px;font-size:11px;color:var(--sub);">间隔 0.5~1.5s</span>
-                            <button class="btn btn-primary" id="btn-scan" onclick="startBatchScan()">
-                                🚀 扫描
-                            </button>
-                            <button class="btn btn-ghost" id="btn-scan-stop" onclick="stopBatchScan()"
-                                style="display:none;font-size:12px;padding:5px 12px;">
-                                ⏹ 停止
-                            </button>
-                        </div>
-                        <div class="scan-hint" id="scan-hint">输入起始和结束 act_id，批量检查哪些存在有效的收藏集。<br /><small
-                                style="color:var(--sub);">⚠️ 需要配置 B 站 Cookie 才能使用此功能</small></div>
-                        <div class="scan-progress" id="scan-progress" style="display:none;">
-                            <div class="scan-prog-bar-bg">
-                                <div class="scan-prog-bar" id="scan-prog-bar"></div>
-                            </div>
-                            <div class="scan-prog-text" id="scan-prog-text">准备中…</div>
-                        </div>
-                        <div class="scan-results" id="scan-results"></div>
-                    </div>
+
 
                     <!-- Options -->
                     <div class="opts-row">
@@ -158,20 +179,6 @@
 
                 <!-- ─── Results ─── -->
                 <div class="results-wrap" id="results-wrap">
-                    <div class="result-hdr">
-                        <div class="card-title" style="margin: 0">📋 下载结果</div>
-                        <div style="display: flex; align-items: center; gap: 10px">
-                            <div id="dl-type-chks" style="display: none; gap: 8px">
-                                <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
-                                <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
-                                <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
-                            </div>
-                            <button class="btn btn-green" id="btn-dl-all" style="display: none" onclick="downloadAll()">
-                                ⬇️ 下载全部
-                            </button>
-                        </div>
-                        <div id="zip-progress-text" style="font-size:12px;color:#888;min-height:18px;text-align:right;"></div>
-                    </div>
                     <div id="alerts"></div>
                     <div id="results-body"></div>
                     <div class="pagination" id="pagination" style="display:none;">
