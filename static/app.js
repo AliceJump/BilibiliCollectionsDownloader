@@ -1810,7 +1810,6 @@ function splitEmojiSheet(imgUrl) {
 /* ============================================================
    Emoji card loader (collapsed preview + popup on click)
    ============================================================ */
-var _emojiPopupData = null; // { card_name, emojis: [canvas], coll_name }
 
 async function loadEmojiCard(card, bodyEl, coll) {
     try {
@@ -1827,25 +1826,32 @@ async function loadEmojiCard(card, bodyEl, coll) {
         var rawEmojis = await splitEmojiSheet(proxyUrl);
         if (!rawEmojis || rawEmojis.length === 0) throw new Error("无透明区域");
 
-        // 过滤：按尺寸众数筛选
-        var sizeMap = {};
-        rawEmojis.forEach(function (e) {
-            var key = e.canvas.width + "x" + e.canvas.height;
-            sizeMap[key] = (sizeMap[key] || 0) + 1;
-        });
-        var modeKey = null, modeCount = 0;
-        for (var k in sizeMap) {
-            if (sizeMap[k] > modeCount) { modeCount = sizeMap[k]; modeKey = k; }
+        // 按尺寸分组（容差 5px）
+        function groupKey(w, h) {
+            var gw = Math.round(w / 5) * 5;
+            var gh = Math.round(h / 5) * 5;
+            return gw + "x" + gh;
         }
-        var filtered = rawEmojis.filter(function (e) {
-            return (e.canvas.width + "x" + e.canvas.height) === modeKey;
+        var groups = {};
+        rawEmojis.forEach(function (e) {
+            var key = groupKey(e.canvas.width, e.canvas.height);
+            if (!groups[key]) groups[key] = { w: e.canvas.width, h: e.canvas.height, items: [], count: 0 };
+            groups[key].items.push(e);
+            groups[key].count++;
         });
-        if (filtered.length < 3 && rawEmojis.length > 5) throw new Error("众数过少，可能是无效表情包");
 
-        var emojis = filtered;
+        // 取 width × count 最大的组
+        var bestGroup = null, bestScore = 0;
+        for (var gk in groups) {
+            var g = groups[gk];
+            var score = g.w * g.count;
+            if (score > bestScore) { bestScore = score; bestGroup = g; }
+        }
+        if (!bestGroup || bestGroup.count < 3) throw new Error("无有效表情分组");
+
+        var emojis = bestGroup.items;
 
         // 判断是否几乎占满原图 = 普通图片
-        var first = emojis[0];
         var imgTest = new Image();
         imgTest.crossOrigin = "anonymous";
         await new Promise(function (resolve, reject) {
@@ -1853,11 +1859,11 @@ async function loadEmojiCard(card, bodyEl, coll) {
             imgTest.src = proxyUrl;
         });
         var totalArea = imgTest.width * imgTest.height;
-        var firstArea = first.canvas.width * first.canvas.height;
+        var firstArea = emojis[0].canvas.width * emojis[0].canvas.height;
         if (emojis.length <= 2 && firstArea / totalArea > 0.7) throw new Error("无有效透明区域");
 
-        // 保存数据供弹窗使用
-        _emojiPopupData = {
+        // 将数据存到 bodyEl 上，弹窗时读取
+        bodyEl._emojiData = {
             card_name: card.card_name,
             emojis: emojis,
             coll_name: coll.name,
@@ -1871,7 +1877,6 @@ async function loadEmojiCard(card, bodyEl, coll) {
         var previewRow = document.createElement("div");
         previewRow.style.cssText = "display:flex;align-items:center;gap:10px;padding:4px 8px;";
 
-        // 第一个表情缩略图
         var previewCvs = emojis[0].canvas;
         var pThumb = document.createElement("canvas");
         var pScale = Math.min(48 / previewCvs.width, 48 / previewCvs.height, 1);
@@ -1888,7 +1893,10 @@ async function loadEmojiCard(card, bodyEl, coll) {
         viewBtn.className = "btn btn-primary";
         viewBtn.style.cssText = "font-size:11px;padding:4px 12px;flex-shrink:0;";
         viewBtn.textContent = "查看";
-        viewBtn.onclick = function (e) { e.stopPropagation(); openEmojiPopup(); };
+        viewBtn.onclick = function (e) {
+            e.stopPropagation();
+            openEmojiPopup(bodyEl._emojiData);
+        };
 
         previewRow.appendChild(pThumb);
         previewRow.appendChild(infoText);
@@ -1900,9 +1908,8 @@ async function loadEmojiCard(card, bodyEl, coll) {
     }
 }
 
-function openEmojiPopup() {
-    if (!_emojiPopupData) return;
-    var data = _emojiPopupData;
+function openEmojiPopup(data) {
+    if (!data) return;
     // 复用 fab-panel 样式，动态创建
     var existing = document.getElementById("emoji-popup");
     if (existing) existing.remove();
