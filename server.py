@@ -483,6 +483,19 @@ _RESOLVE_HEADERS = {
 }
 
 
+@app.route("/api/check_login")
+def check_login():
+    """
+    检查当前是否已登录（是否有有效的 SESSDATA Cookie）。
+    返回:
+      {"code": 0, "data": {"logged_in": true/false}}
+    """
+    sess = BILI_COOKIES.get("SESSDATA", "").strip()
+    logged_in = bool(sess)
+    LOGGER.info(f"/api/check_login: logged_in={logged_in}")
+    return jsonify({"code": 0, "data": {"logged_in": logged_in}})
+
+
 @app.route("/api/check_act_id")
 def check_act_id():
     """

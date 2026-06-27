@@ -1556,6 +1556,24 @@ function randomDelay(min, max) {
 }
 
 async function startBatchScan() {
+    var hintEl = document.getElementById("scan-hint");
+
+    // ── 检查登录状态 ──
+    try {
+        var loginRes = await fetch(API_BASE + "/api/check_login");
+        var loginJson = await loginRes.json();
+        if (loginJson.code === 0 && !loginJson.data.logged_in) {
+            hintEl.textContent = "⚠️ 批量扫描需要登录才能使用，请先配置 B 站 Cookie（SESSDATA）。";
+            hintEl.style.color = "#ff4d4f";
+            return;
+        }
+    } catch (_) {
+        hintEl.textContent = "⚠️ 无法检查登录状态，请稍后重试。";
+        hintEl.style.color = "#ff4d4f";
+        return;
+    }
+    hintEl.style.color = "";
+
     var startEl = document.getElementById("scan-start");
     var endEl = document.getElementById("scan-end");
     var btn = document.getElementById("btn-scan");
@@ -1563,7 +1581,6 @@ async function startBatchScan() {
     var progressEl = document.getElementById("scan-progress");
     var progBar = document.getElementById("scan-prog-bar");
     var progText = document.getElementById("scan-prog-text");
-    var hintEl = document.getElementById("scan-hint");
 
     var start = parseInt(startEl.value, 10);
     var end = parseInt(endEl.value, 10);

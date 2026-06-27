@@ -4,13 +4,10 @@
     --pink-light: rgba(251, 114, 153, 0.08);
     --green: #52c41a;
     --bg: #f4f5f7;
-    --bg2: #eef0f2;
     --card: #fff;
     --text: #18191c;
-    --fg: #18191c;
     --sub: #9499a0;
     --border: #e3e5e7;
-    --bd: #e3e5e7;
     --radius: 12px;
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
@@ -389,9 +386,17 @@ header .sub {
     font-size: 14px;
 }
 
-.scan-stat-ok .scan-stat-num { color: #52c41a; }
-.scan-stat-fail .scan-stat-num { color: #ff4d4f; }
-.scan-stat-total .scan-stat-num { color: var(--text); }
+.scan-stat-ok .scan-stat-num {
+    color: #52c41a;
+}
+
+.scan-stat-fail .scan-stat-num {
+    color: #ff4d4f;
+}
+
+.scan-stat-total .scan-stat-num {
+    color: var(--text);
+}
 
 /* ── Options ── */
 .opts-row {
@@ -1033,25 +1038,16 @@ footer a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 12px;
     padding: 16px 0 8px;
     margin-top: 8px;
     border-top: 1px solid var(--bd);
 }
 
 .page-info {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--fg);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
-    flex-shrink: 1;
-}
-
-#btn-page-prev,
-#btn-page-next {
-    flex-shrink: 0;
 }
 
 #btn-page-prev:disabled,
