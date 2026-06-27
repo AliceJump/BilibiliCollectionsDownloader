@@ -12,6 +12,20 @@
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
+/* ── 下载栏可见时，浮动按钮自动上移 ── */
+body.dl-bar-visible .fab-btn {
+    bottom: 100px;
+}
+body.dl-bar-visible .hist-btn {
+    bottom: 44px;
+}
+body.dl-bar-visible .hist-panel {
+    bottom: 100px;
+}
+body.dl-bar-visible .fab-panel {
+    bottom: 152px;
+}
+
 /* ── Floating action buttons (scan) ── */
 .fab-btn {
     position: fixed;
