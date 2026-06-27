@@ -12,18 +12,17 @@
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* ── 下载栏可见时，浮动按钮自动上移 ── */
-body.dl-bar-visible .fab-btn {
-    bottom: 100px;
+/* ── 浮动下载按钮 ── */
+.fab-dl {
+    right: 20px;
+    bottom: 136px;
+    background: var(--green);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(82, 196, 26, 0.4);
 }
-body.dl-bar-visible .hist-btn {
-    bottom: 44px;
-}
-body.dl-bar-visible .hist-panel {
-    bottom: 100px;
-}
-body.dl-bar-visible .fab-panel {
-    bottom: 152px;
+.fab-dl:hover {
+    box-shadow: 0 6px 20px rgba(82, 196, 26, 0.55);
+    background: #389e0d;
 }
 
 /* ── Floating action buttons (scan) ── */
@@ -81,20 +80,6 @@ body.dl-bar-visible .fab-panel {
 .fab-panel-body { padding: 12px; overflow-y: auto; max-height: 60vh; }
 
 /* ── Floating download bar ── */
-.dl-bar {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    z-index: 1001;
-    background: #fff; border-top: 1.5px solid var(--border);
-    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-    padding: 10px 18px;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap;
-}
-.dl-bar-left { display: flex; align-items: center; gap: 10px; }
-.dl-bar-right { display: flex; align-items: center; gap: 10px; }
-.dl-bar-chks { display: flex; gap: 8px; }
-.dl-bar-prog { font-size: 11px; color: var(--sub); min-width: 60px; }
-
 /* ── Floating history button ── */
 .hist-btn {
     position: fixed;
@@ -321,7 +306,7 @@ header .sub {
 .wrap {
     max-width: 860px;
     margin: 28px auto;
-    padding: 0 18px 80px;
+    padding: 0 18px 60px;
 }
 
 /* ── Card ── */

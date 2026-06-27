@@ -691,9 +691,8 @@ function renderResults(collections) {
     }
 
     if (state.allLinks.length > 0) {
-        document.getElementById("dl-bar").style.display = "flex";
-        document.body.classList.add("dl-bar-visible");
         document.getElementById("btn-dl-all").style.display = "inline-flex";
+        document.getElementById("dl-type-chks").style.display = "inline-flex";
         // 默认与上方选项同步
         document.getElementById("dl-chk-img").checked =
             document.getElementById("opt-img").checked;
@@ -1120,9 +1119,8 @@ async function startFetch() {
     document.getElementById("results-wrap").classList.add("on");
     clearAlerts();
     // 不清空 results-body，已有内容保留
-    document.getElementById("dl-bar").style.display = "none";
-    document.body.classList.remove("dl-bar-visible");
     document.getElementById("btn-dl-all").style.display = "none";
+    document.getElementById("dl-type-chks").style.display = "none";
     document.getElementById("pagination").style.display = "none";
 
     // 累计：不清空已有集合
@@ -1300,9 +1298,8 @@ async function continueFetch() {
 
     // 显示/隐藏下载全部按钮
     if (state.allLinks.length > 0) {
-        document.getElementById("dl-bar").style.display = "flex";
-        document.body.classList.add("dl-bar-visible");
         document.getElementById("btn-dl-all").style.display = "inline-flex";
+        document.getElementById("dl-type-chks").style.display = "inline-flex";
         document.getElementById("dl-chk-img").checked =
             document.getElementById("opt-img").checked;
         document.getElementById("dl-chk-vid").checked =
@@ -1608,9 +1605,8 @@ function clearAll() {
     document.getElementById("results-body").innerHTML = "";
     document.getElementById("alerts").innerHTML = "";
     document.getElementById("results-wrap").classList.remove("on");
-    document.getElementById("dl-bar").style.display = "none";
-    document.body.classList.remove("dl-bar-visible");
     document.getElementById("btn-dl-all").style.display = "none";
+    document.getElementById("dl-type-chks").style.display = "none";
     document.getElementById("pagination").style.display = "none";
     hideProgress();
     state.allLinks = [];

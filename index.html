@@ -85,21 +85,8 @@
     </div>
     <div class="fab-overlay" id="scan-overlay" onclick="toggleScan()"></div>
 
-    <!-- ─── 浮动下载栏 ─── -->
-    <div class="dl-bar" id="dl-bar" style="display:none;">
-        <div class="dl-bar-left">
-            <span style="font-size:12px;font-weight:600;color:var(--text);">⬇️ 下载</span>
-            <div class="dl-bar-chks">
-                <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
-                <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
-                <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
-            </div>
-        </div>
-        <div class="dl-bar-right">
-            <span class="dl-bar-prog" id="zip-progress-text"></span>
-            <button class="btn btn-green" id="btn-dl-all" onclick="downloadAll()" style="display:none;font-size:12px;padding:6px 14px;">⬇️ 下载全部</button>
-        </div>
-    </div>
+    <!-- ─── 浮动下载按钮 ─── -->
+    <button class="fab-btn fab-dl" id="btn-dl-all" onclick="downloadAll()" title="下载全部" style="display:none;">⬇️</button>
 
     <!-- ─── 主内容 ─── -->
     <header>
@@ -179,6 +166,16 @@
 
                 <!-- ─── Results ─── -->
                 <div class="results-wrap" id="results-wrap">
+                    <div class="result-hdr">
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span id="dl-type-chks" style="display:none;gap:8px;">
+                                <label class="chk-label"><input type="checkbox" id="dl-chk-img" checked />🖼️</label>
+                                <label class="chk-label"><input type="checkbox" id="dl-chk-vid" checked />🎬</label>
+                                <label class="chk-label"><input type="checkbox" id="dl-chk-wm" checked />💧</label>
+                            </span>
+                            <span id="zip-progress-text" style="font-size:11px;color:var(--sub);"></span>
+                        </div>
+                    </div>
                     <div id="alerts"></div>
                     <div id="results-body"></div>
                     <div class="pagination" id="pagination" style="display:none;">
