@@ -1010,9 +1010,21 @@ function appendSingleBlock(container, coll) {
 
         const preview = document.createElement("div");
         preview.className = "dl-preview";
+
+        // 判断是否为表情包卡片
+        var isEmojiCard = card.card_name.indexOf("表情包") !== -1 || card.card_name.indexOf("表情") !== -1;
+        var _emojiCache = null; // { url -> [canvas, ...] }
+
         function renderPreview() {
             preview.innerHTML = "";
-            let hasContent = false;
+            var hasContent = false;
+
+            // 表情包卡片特殊处理
+            if (isEmojiCard && activeType === "img") {
+                renderEmojiPreview(preview, card);
+                return;
+            }
+
             const seen = new Set();
             for (const dl of card.links) {
                 const key = (dl.cls || "") + "|" + (dl.url || "");
@@ -1047,6 +1059,97 @@ function appendSingleBlock(container, coll) {
                     '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
             }
         }
+
+        async function renderEmojiPreview(container, card) {
+            container.innerHTML = '<div style="text-align:center;padding:12px;color:var(--sub);font-size:12px;">⏳ 解析表情包...</div>';
+            // 取第一个图片链接
+            var imgLink = null;
+            for (var dli = 0; dli < card.links.length; dli++) {
+                if (card.links[dli].cls === "dl-a-img") {
+                    imgLink = card.links[dli].url;
+                    break;
+                }
+            }
+            if (!imgLink) {
+                container.innerHTML = '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
+                return;
+            }
+
+            try {
+                var proxyUrl = `${API_BASE}/api/proxy_img?url=${encodeURIComponent(imgLink)}`;
+                var emojis = await splitEmojiSheet(proxyUrl);
+                if (!emojis || !emojis.length) {
+                    container.innerHTML = '<span style="color:#bbb;font-size:13px;">未识别到表情包</span>';
+                    return;
+                }
+                // 缓存
+                if (!_emojiCache) _emojiCache = {};
+                _emojiCache[imgLink] = emojis;
+
+                container.innerHTML = "";
+                container.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;padding:8px;justify-content:center;background:#f8f8f8;border-radius:8px;";
+                for (var ei = 0; ei < emojis.length; ei++) {
+                    (function (idx) {
+                        var wrapper = document.createElement("div");
+                        wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:2px;";
+
+                        var cvs = emojis[idx].canvas;
+                        var thumb = document.createElement("canvas");
+                        var maxSize = 72;
+                        var scale = Math.min(maxSize / cvs.width, maxSize / cvs.height, 1);
+                        thumb.width = Math.round(cvs.width * scale);
+                        thumb.height = Math.round(cvs.height * scale);
+                        thumb.getContext("2d").drawImage(cvs, 0, 0, thumb.width, thumb.height);
+                        thumb.style.cssText = "border-radius:4px;border:1px solid #e3e5e7;cursor:pointer;";
+                        thumb.title = "点击下载";
+
+                        // 点击下载单个表情
+                        thumb.onclick = function () {
+                            cvs.toBlob(function (blob) {
+                                var a = document.createElement("a");
+                                a.href = URL.createObjectURL(blob);
+                                a.download = (card.card_name + "_" + (idx + 1)) + ".png";
+                                a.click();
+                                URL.revokeObjectURL(a.href);
+                            });
+                        };
+
+                        wrapper.appendChild(thumb);
+
+                        var label = document.createElement("span");
+                        label.style.cssText = "font-size:9px;color:var(--sub);";
+                        label.textContent = (idx + 1);
+                        wrapper.appendChild(label);
+
+                        container.appendChild(wrapper);
+                    })(ei);
+                }
+
+                // "下载全部" 按钮
+                var dlAllBtn = document.createElement("button");
+                dlAllBtn.className = "btn btn-green";
+                dlAllBtn.style.cssText = "margin-top:8px;font-size:11px;padding:4px 12px;";
+                dlAllBtn.textContent = "⬇️ 下载全部 " + emojis.length + " 个表情";
+                dlAllBtn.onclick = function () {
+                    emojis.forEach(function (emo, ei) {
+                        setTimeout(function () {
+                            emo.canvas.toBlob(function (blob) {
+                                var a = document.createElement("a");
+                                a.href = URL.createObjectURL(blob);
+                                a.download = (card.card_name + "_" + (ei + 1)) + ".png";
+                                a.click();
+                                URL.revokeObjectURL(a.href);
+                            });
+                        }, ei * 200);
+                    });
+                };
+                container.appendChild(dlAllBtn);
+
+            } catch (err) {
+                container.innerHTML = '<span style="color:#ff4d4f;font-size:12px;">解析失败: ' + err.message + '</span>';
+            }
+        }
+
         renderPreview();
         item.appendChild(preview);
 
@@ -1675,6 +1778,115 @@ function clearAll() {
     setZipProgress('');
     updateActionButtons();
 }
+/* ============================================================
+   Emoji sheet splitting
+   ============================================================ */
+function splitEmojiSheet(imgUrl) {
+    return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () {
+            var cvs = document.createElement("canvas");
+            cvs.width = img.width;
+            cvs.height = img.height;
+            var ctx = cvs.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            var imageData = ctx.getImageData(0, 0, cvs.width, cvs.height);
+            var data = imageData.data;
+
+            // 逐行扫描，找到有非透明像素的行区间
+            var rows = [];
+            for (var y = 0; y < cvs.height; y++) {
+                var hasPixel = false;
+                for (var x = 0; x < cvs.width; x++) {
+                    if (data[(y * cvs.width + x) * 4 + 3] > 30) { // alpha > 30
+                        hasPixel = true;
+                        break;
+                    }
+                }
+                rows.push(hasPixel);
+            }
+
+            // 合并行区间
+            var rowRanges = [];
+            var inRow = false;
+            var rowStart = 0;
+            for (var y = 0; y < rows.length; y++) {
+                if (rows[y] && !inRow) { rowStart = y; inRow = true; }
+                if (!rows[y] && inRow) {
+                    rowRanges.push({ start: rowStart, end: y - 1 });
+                    inRow = false;
+                }
+            }
+            if (inRow) rowRanges.push({ start: rowStart, end: rows.length - 1 });
+
+            var results = [];
+
+            for (var ri = 0; ri < rowRanges.length; ri++) {
+                var rr = rowRanges[ri];
+                // 在该行区间内逐列扫描
+                var colHasPixel = [];
+                for (var x = 0; x < cvs.width; x++) {
+                    var hasP = false;
+                    for (var y = rr.start; y <= rr.end; y++) {
+                        if (data[(y * cvs.width + x) * 4 + 3] > 30) {
+                            hasP = true;
+                            break;
+                        }
+                    }
+                    colHasPixel.push(hasP);
+                }
+
+                // 合并列区间
+                var inCol = false;
+                var colStart = 0;
+                for (var x = 0; x < colHasPixel.length; x++) {
+                    if (colHasPixel[x] && !inCol) { colStart = x; inCol = true; }
+                    if (!colHasPixel[x] && inCol) {
+                        // 裁剪该区域
+                        var emojiCvs = document.createElement("canvas");
+                        var ew = x - colStart + 1;
+                        var eh = rr.end - rr.start + 1;
+                        // 加 2px 内边距避免边缘裁切
+                        var pad = 1;
+                        var cropX = Math.max(0, colStart - pad);
+                        var cropY = Math.max(0, rr.start - pad);
+                        var cropW = Math.min(cvs.width - cropX, ew + pad * 2);
+                        var cropH = Math.min(cvs.height - cropY, eh + pad * 2);
+                        emojiCvs.width = cropW;
+                        emojiCvs.height = cropH;
+                        emojiCvs.getContext("2d").drawImage(
+                            cvs, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH
+                        );
+                        results.push({ canvas: emojiCvs, x: colStart, y: rr.start });
+                        inCol = false;
+                    }
+                }
+                if (inCol) {
+                    var emojiCvs = document.createElement("canvas");
+                    var ew = colHasPixel.length - colStart;
+                    var eh = rr.end - rr.start + 1;
+                    var pad = 1;
+                    var cropX = Math.max(0, colStart - pad);
+                    var cropY = Math.max(0, rr.start - pad);
+                    var cropW = Math.min(cvs.width - cropX, ew + pad * 2);
+                    var cropH = Math.min(cvs.height - cropY, eh + pad * 2);
+                    emojiCvs.width = cropW;
+                    emojiCvs.height = cropH;
+                    emojiCvs.getContext("2d").drawImage(
+                        cvs, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH
+                    );
+                    results.push({ canvas: emojiCvs, x: colStart, y: rr.start });
+                }
+            }
+
+            resolve(results);
+        };
+        img.onerror = function () { reject(new Error("图片加载失败")); };
+        img.src = imgUrl;
+    });
+}
+
 /* ============================================================
    Input tab switching
    ============================================================ */
