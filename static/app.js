@@ -86,21 +86,34 @@ qrZone.addEventListener("drop", (e) => {
 
 /**
  * Extract act_id from a raw string.
- * 1. If it's a URL with act_id in the query string, return it directly.
+ * 1. If it's a URL with act_id/type=dlc&id in the query string, return it directly.
  * 2. If it's a bare number, return it directly.
  * 3. Otherwise (e.g. b23.tv short link), ask the backend to follow redirects
  *    and try extracting act_id from the final URL.
  */
 async function extractActId(text) {
     text = text.trim();
-    // Direct URL with act_id param
+
+    // Helper: extract act_id from URL, supporting both ?act_id= and ?type=dlc&id=
+    function _getIdFromUrl(url) {
+        let aid = url.searchParams.get("act_id");
+        if (aid) return aid;
+        // blackboard/activity?type=dlc&id=xxx
+        if (url.searchParams.get("type") === "dlc") {
+            aid = url.searchParams.get("id");
+            if (aid) return aid;
+        }
+        return null;
+    }
+
+    // Direct URL with act_id / type=dlc params
     try {
-        const actId = new URL(text).searchParams.get("act_id");
+        const actId = _getIdFromUrl(new URL(text));
         if (actId) return actId;
     } catch (_) { }
     // Bare number
     if (/^\d+$/.test(text)) return text;
-    // HTTP(S) URL without act_id — may be a short link; resolve via backend
+    // HTTP(S) URL without direct act_id — may be a short link; resolve via backend
     if (/^https?:\/\//i.test(text)) {
         try {
             const res = await fetch(
@@ -108,8 +121,10 @@ async function extractActId(text) {
             );
             const json = await res.json();
             if (json.code === 0 && json.url) {
-                const actId = new URL(json.url).searchParams.get("act_id");
-                if (actId) return actId;
+                try {
+                    const actId = _getIdFromUrl(new URL(json.url));
+                    if (actId) return actId;
+                } catch (_) { }
             }
         } catch (_) { }
     }
@@ -606,7 +621,6 @@ function updatePaginationUI() {
     var totalPages = getTotalPages();
     var curPage = getCurrentPageData();
     var allDone = window._pendingActIds.length === 0 && !window._isPageFetching;
-    var hasPending = window._pendingActIds.length > 0;
 
     if (totalPages <= 1 && allDone) {
         pagEl.style.display = "none";
@@ -614,21 +628,21 @@ function updatePaginationUI() {
     }
 
     pagEl.style.display = "flex";
-    infoEl.textContent = "第 " + (curIdx + 1) + " / " + totalPages + " 页 · " + curPage.cardCount + " 张";
+    infoEl.textContent = "第 " + (curIdx + 1) + " / " + totalPages + " 页 (" +
+        curPage.cardCount + " 张卡牌)" +
+        (allDone ? "" : " — 点击「下一页」继续加载");
 
     prevBtn.disabled = curIdx === 0;
+    nextBtn.disabled = window._isPageFetching;
 
-    if (allDone && curIdx === totalPages - 1) {
-        nextBtn.disabled = true;
-        nextBtn.textContent = "完毕";
-    } else if (window._isPageFetching) {
-        nextBtn.disabled = true;
-        nextBtn.textContent = "加载中…";
-    } else if (hasPending) {
+    // 如果还有待加载且是最后一页，"下一页"显示为加载按钮
+    if (curIdx === totalPages - 1 && window._pendingActIds.length > 0) {
+        nextBtn.textContent = "下一页 ▶ (加载 " + window._pendingActIds.length + " 个)";
         nextBtn.disabled = false;
+    } else if (allDone && curIdx === totalPages - 1) {
         nextBtn.textContent = "下一页 ▶";
+        nextBtn.disabled = true;
     } else {
-        nextBtn.disabled = false;
         nextBtn.textContent = "下一页 ▶";
     }
 }
@@ -653,9 +667,9 @@ function updateLoadProgress() {
         totalColls += pg.collections.length;
     }
     var pending = window._pendingActIds ? window._pendingActIds.length : 0;
-    var text = "📦 " + totalColls + " 合集 · " + totalCards + " 张";
+    var text = "📦 已加载 " + totalColls + " 个收藏集 · " + totalCards + " 张卡牌";
     if (pending > 0) {
-        text += " · 剩余 " + pending;
+        text += " · 剩余 " + pending + " 个待加载";
     }
     el.textContent = text;
 }
@@ -683,18 +697,20 @@ function renderCurrentPage() {
     updateActionButtons();
 }
 
-async function nextPage() {
+function nextPage() {
     var curIdx = window._currentPageIdx;
     var totalPages = getTotalPages();
+
+    // 如果当前是最后一页且有未加载的 act_id，先继续加载
+    if (curIdx === totalPages - 1 && window._pendingActIds.length > 0) {
+        continueFetch();
+        return;
+    }
 
     // 翻到下一页
     if (curIdx < totalPages - 1) {
         window._currentPageIdx++;
         renderCurrentPage();
-        // 如果还有待加载且未在加载中，在新页开始加载
-        if (window._pendingActIds.length > 0 && !window._isPageFetching) {
-            continueFetch();
-        }
     }
 }
 
@@ -864,9 +880,7 @@ function appendSingleBlock(container, coll) {
     block.appendChild(header);
     block.appendChild(body);
 
-    var collapseTimer = null;
     const toggleCollapse = function () {
-        if (collapseTimer) { clearTimeout(collapseTimer); collapseTimer = null; }
         var wasClosed = body.classList.contains("closed");
         if (wasClosed) {
             body.style.maxHeight = body.scrollHeight + "px";
@@ -874,11 +888,6 @@ function appendSingleBlock(container, coll) {
             toggle.classList.remove("collapsed");
             header.classList.remove("collapsed");
             header.setAttribute("aria-expanded", "true");
-            // 过渡结束后移除固定 max-height，内容变化时不会被裁剪
-            collapseTimer = setTimeout(function () {
-                body.style.maxHeight = "";
-                collapseTimer = null;
-            }, 360);
         } else {
             body.style.maxHeight = body.scrollHeight + "px";
             void body.offsetHeight;
@@ -893,6 +902,9 @@ function appendSingleBlock(container, coll) {
     collapseBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleCollapse(); });
 
     container.appendChild(block);
+
+    void block.offsetHeight;
+    body.style.maxHeight = body.scrollHeight + "px";
 }
 
 /* ============================================================
@@ -1089,7 +1101,10 @@ async function continueFetch() {
         // 当前收藏集已完整加载完毕，现在判断总卡牌是否 ≥ 200
         if (curPage.cardCount >= PAGE_CARD_LIMIT && window._pendingActIds.length > 0) {
             // 达到了阈值且还有剩余 act_id → 停在此页，显示分页
-            addAlert("alert-info", "📄 第 " + (getTotalPages()) + " 页已达 " + curPage.cardCount + " 张，剩余 " + window._pendingActIds.length + " 个待加载");
+            var summaryParts = [];
+            summaryParts.push("第 " + (getTotalPages()) + " 页已达 " + curPage.cardCount + " 张卡牌");
+            summaryParts.push("剩余 " + window._pendingActIds.length + " 个 act_id 待加载");
+            addAlert("alert-info", "📄 " + summaryParts.join("，") + "，点击「下一页」继续");
             break;
         }
     }
