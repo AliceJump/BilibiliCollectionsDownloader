@@ -1028,9 +1028,14 @@ async function startFetch() {
         wm: document.getElementById("opt-wm").checked,
     };
 
-    // ── 重置分页状态 ──
-    window._pages = [{ collections: [], cardCount: 0 }];
-    window._currentPageIdx = 0;
+    // ── 追加模式：不清空已有分页，新结果追加到最后一页 ──
+    if (!window._pages || !window._pages.length) {
+        window._pages = [{ collections: [], cardCount: 0 }];
+        window._currentPageIdx = 0;
+    } else {
+        // 跳到最后一页，新结果追加到那里
+        window._currentPageIdx = window._pages.length - 1;
+    }
     window._pendingActIds = newActIds.slice(); // 剩余待取回的 act_id
     window._pendingOpts = opts;
     window._isPageFetching = false;
@@ -1041,7 +1046,7 @@ async function startFetch() {
     showProgress();
     document.getElementById("results-wrap").classList.add("on");
     clearAlerts();
-    document.getElementById("results-body").innerHTML = "";
+    // 不清空 results-body，已有内容保留
     document.getElementById("btn-dl-all").style.display = "none";
     document.getElementById("pagination").style.display = "none";
 
@@ -1151,8 +1156,8 @@ async function continueFetch() {
         // ── 立即显示刚加载的收藏集 ──
         if (newCollectionsForAct.length > 0) {
             var container = document.getElementById("results-body");
-            // 如果是当前页第一次显示，先清空容器
-            if (curPage.collections.length === 0 && pageFetchedCount === 1) {
+            // 如果是当前页第一次显示，且无更早页面（第0页）才清空，追加时不丢失已有内容
+            if (curPage.collections.length === 0 && pageFetchedCount === 1 && window._currentPageIdx === 0) {
                 container.innerHTML = "";
                 state.allLinks = [];
             }
