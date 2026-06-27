@@ -969,204 +969,124 @@ function appendSingleBlock(container, coll) {
     const safeName = (s) => s.replace(/[<>:"/\\|?*\s]/g, "_");
 
     for (const card of coll.cards) {
-        const item = document.createElement("div");
-        item.className = "dl-item";
-
-        const top = document.createElement("div");
-        top.className = "dl-item-top";
-
-        const nm = document.createElement("div");
-        nm.className = "dl-item-name";
-        nm.title = card.card_name;
-        nm.textContent = card.card_name;
-        top.appendChild(nm);
-
-        const tabs = document.createElement("div");
-        tabs.className = "dl-tabs";
-        const types = [];
-        for (const dl of card.links) {
-            if (dl.cls === "dl-a-img" && !types.includes("img")) types.push("img");
-            if (dl.cls === "dl-a-vid" && !types.includes("vid")) types.push("vid");
-            if (dl.cls === "dl-a-wm" && !types.includes("wm")) types.push("wm");
-        }
-        const tabNames = { img: "🖼️", vid: "🎬", wm: "💧" };
-        let activeType = types[0] || "img";
-        types.forEach((type) => {
-            const tab = document.createElement("div");
-            tab.className = "dl-tab" + (type === activeType ? " active" : "");
-            tab.textContent = tabNames[type] || type;
-            tab.dataset.type = type;
-            tab.onclick = () => {
-                activeType = type;
-                [...tabs.children].forEach((t) =>
-                    t.classList.toggle("active", t.dataset.type === type)
-                );
-                renderPreview();
-            };
-            tabs.appendChild(tab);
-        });
-        top.appendChild(tabs);
-        item.appendChild(top);
-
-        const preview = document.createElement("div");
-        preview.className = "dl-preview";
-
-        // 判断是否为表情包卡片
         var isEmojiCard = card.card_name.indexOf("表情包") !== -1 || card.card_name.indexOf("表情") !== -1;
-        var _emojiCache = null; // { url -> [canvas, ...] }
 
-        function renderPreview() {
-            preview.innerHTML = "";
-            var hasContent = false;
+        if (isEmojiCard) {
+            // ── 表情包卡片：使用自定义控件 ──
+            var emojiWrap = document.createElement("div");
+            emojiWrap.className = "emoji-card";
+            // 标题
+            var emojiTitle = document.createElement("div");
+            emojiTitle.className = "emoji-card-title";
+            emojiTitle.textContent = "😊 " + card.card_name;
+            emojiWrap.appendChild(emojiTitle);
+            // 加载状态
+            var emojiBody = document.createElement("div");
+            emojiBody.className = "emoji-card-body";
+            emojiBody.innerHTML = '<div class="emoji-loading">⏳ 解析表情包...</div>';
+            emojiWrap.appendChild(emojiBody);
+            list.appendChild(emojiWrap);
 
-            // 表情包卡片特殊处理
-            if (isEmojiCard && activeType === "img") {
-                renderEmojiPreview(preview, card);
-                return;
-            }
+            // 异步加载并解析
+            loadEmojiCard(card, emojiBody, coll);
+        } else {
+            // ── 普通卡片：标准样式 ──
+            const item = document.createElement("div");
+            item.className = "dl-item";
 
-            const seen = new Set();
+            const top = document.createElement("div");
+            top.className = "dl-item-top";
+
+            const nm = document.createElement("div");
+            nm.className = "dl-item-name";
+            nm.title = card.card_name;
+            nm.textContent = card.card_name;
+            top.appendChild(nm);
+
+            const tabs = document.createElement("div");
+            tabs.className = "dl-tabs";
+            const types = [];
             for (const dl of card.links) {
-                const key = (dl.cls || "") + "|" + (dl.url || "");
-                if (seen.has(key)) continue;
-                seen.add(key);
-                if (activeType === "img" && dl.cls === "dl-a-img") {
-                    const img = document.createElement("img");
-                    img.src = `${API_BASE}/api/proxy_img?url=${encodeURIComponent(dl.url)}`;
-                    img.alt = "图片预览";
-                    img.loading = "lazy";
-                    img.referrerPolicy = "no-referrer";
-                    preview.appendChild(img);
-                    hasContent = true;
-                } else if (activeType === "vid" && dl.cls === "dl-a-vid") {
-                    const video = document.createElement("video");
-                    video.src = dl.url;
-                    video.controls = true;
-                    video.preload = "none";
-                    preview.appendChild(video);
-                    hasContent = true;
-                } else if (activeType === "wm" && dl.cls === "dl-a-wm") {
-                    const video = document.createElement("video");
-                    video.src = dl.url;
-                    video.controls = true;
-                    video.preload = "none";
-                    preview.appendChild(video);
-                    hasContent = true;
-                }
+                if (dl.cls === "dl-a-img" && !types.includes("img")) types.push("img");
+                if (dl.cls === "dl-a-vid" && !types.includes("vid")) types.push("vid");
+                if (dl.cls === "dl-a-wm" && !types.includes("wm")) types.push("wm");
             }
-            if (!hasContent) {
-                preview.innerHTML =
-                    '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
-            }
-        }
-
-        async function renderEmojiPreview(container, card) {
-            container.innerHTML = '<div style="text-align:center;padding:12px;color:var(--sub);font-size:12px;">⏳ 解析表情包...</div>';
-            // 取第一个图片链接
-            var imgLink = null;
-            for (var dli = 0; dli < card.links.length; dli++) {
-                if (card.links[dli].cls === "dl-a-img") {
-                    imgLink = card.links[dli].url;
-                    break;
-                }
-            }
-            if (!imgLink) {
-                container.innerHTML = '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
-                return;
-            }
-
-            try {
-                var proxyUrl = `${API_BASE}/api/proxy_img?url=${encodeURIComponent(imgLink)}`;
-                var emojis = await splitEmojiSheet(proxyUrl);
-                if (!emojis || !emojis.length) {
-                    container.innerHTML = '<span style="color:#bbb;font-size:13px;">未识别到表情包</span>';
-                    return;
-                }
-                // 缓存
-                if (!_emojiCache) _emojiCache = {};
-                _emojiCache[imgLink] = emojis;
-
-                container.innerHTML = "";
-                container.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;padding:8px;justify-content:center;background:#f8f8f8;border-radius:8px;";
-                for (var ei = 0; ei < emojis.length; ei++) {
-                    (function (idx) {
-                        var wrapper = document.createElement("div");
-                        wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:2px;";
-
-                        var cvs = emojis[idx].canvas;
-                        var thumb = document.createElement("canvas");
-                        var maxSize = 72;
-                        var scale = Math.min(maxSize / cvs.width, maxSize / cvs.height, 1);
-                        thumb.width = Math.round(cvs.width * scale);
-                        thumb.height = Math.round(cvs.height * scale);
-                        thumb.getContext("2d").drawImage(cvs, 0, 0, thumb.width, thumb.height);
-                        thumb.style.cssText = "border-radius:4px;border:1px solid #e3e5e7;cursor:pointer;";
-                        thumb.title = "点击下载";
-
-                        // 点击下载单个表情
-                        thumb.onclick = function () {
-                            cvs.toBlob(function (blob) {
-                                var a = document.createElement("a");
-                                a.href = URL.createObjectURL(blob);
-                                a.download = (card.card_name + "_" + (idx + 1)) + ".png";
-                                a.click();
-                                URL.revokeObjectURL(a.href);
-                            });
-                        };
-
-                        wrapper.appendChild(thumb);
-
-                        var label = document.createElement("span");
-                        label.style.cssText = "font-size:9px;color:var(--sub);";
-                        label.textContent = (idx + 1);
-                        wrapper.appendChild(label);
-
-                        container.appendChild(wrapper);
-                    })(ei);
-                }
-
-                // "下载全部" 按钮
-                var dlAllBtn = document.createElement("button");
-                dlAllBtn.className = "btn btn-green";
-                dlAllBtn.style.cssText = "margin-top:8px;font-size:11px;padding:4px 12px;";
-                dlAllBtn.textContent = "⬇️ 下载全部 " + emojis.length + " 个表情";
-                dlAllBtn.onclick = function () {
-                    emojis.forEach(function (emo, ei) {
-                        setTimeout(function () {
-                            emo.canvas.toBlob(function (blob) {
-                                var a = document.createElement("a");
-                                a.href = URL.createObjectURL(blob);
-                                a.download = (card.card_name + "_" + (ei + 1)) + ".png";
-                                a.click();
-                                URL.revokeObjectURL(a.href);
-                            });
-                        }, ei * 200);
-                    });
+            const tabNames = { img: "🖼️", vid: "🎬", wm: "💧" };
+            let activeType = types[0] || "img";
+            types.forEach((type) => {
+                const tab = document.createElement("div");
+                tab.className = "dl-tab" + (type === activeType ? " active" : "");
+                tab.textContent = tabNames[type] || type;
+                tab.dataset.type = type;
+                tab.onclick = () => {
+                    activeType = type;
+                    [...tabs.children].forEach((t) =>
+                        t.classList.toggle("active", t.dataset.type === type)
+                    );
+                    renderPreview();
                 };
-                container.appendChild(dlAllBtn);
-
-            } catch (err) {
-                container.innerHTML = '<span style="color:#ff4d4f;font-size:12px;">解析失败: ' + err.message + '</span>';
-            }
-        }
-
-        renderPreview();
-        item.appendChild(preview);
-
-        for (const dl of card.links) {
-            let filename = safeName(card.card_name);
-            if (dl.cls === "dl-a-wm") {
-                filename += "-水印";
-            }
-            filename += "." + dl.ext;
-            state.allLinks.push({
-                url: dl.url,
-                filename: filename,
-                type: dl.cls,
-                collectionFolder: safeName(coll.name || "未知合集"),
+                tabs.appendChild(tab);
             });
+            top.appendChild(tabs);
+            item.appendChild(top);
+
+            const preview = document.createElement("div");
+            preview.className = "dl-preview";
+
+            function renderPreview() {
+                preview.innerHTML = "";
+                let hasContent = false;
+                const seen = new Set();
+                for (const dl of card.links) {
+                    const key = (dl.cls || "") + "|" + (dl.url || "");
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    if (activeType === "img" && dl.cls === "dl-a-img") {
+                        const img = document.createElement("img");
+                        img.src = `${API_BASE}/api/proxy_img?url=${encodeURIComponent(dl.url)}`;
+                        img.alt = "图片预览";
+                        img.loading = "lazy";
+                        img.referrerPolicy = "no-referrer";
+                        preview.appendChild(img);
+                        hasContent = true;
+                    } else if (activeType === "vid" && dl.cls === "dl-a-vid") {
+                        const video = document.createElement("video");
+                        video.src = dl.url;
+                        video.controls = true;
+                        video.preload = "none";
+                        preview.appendChild(video);
+                        hasContent = true;
+                    } else if (activeType === "wm" && dl.cls === "dl-a-wm") {
+                        const video = document.createElement("video");
+                        video.src = dl.url;
+                        video.controls = true;
+                        video.preload = "none";
+                        preview.appendChild(video);
+                        hasContent = true;
+                    }
+                }
+                if (!hasContent) {
+                    preview.innerHTML = '<span style="color:#bbb;font-size:13px;">无可用预览</span>';
+                }
+            }
+            renderPreview();
+            item.appendChild(preview);
+
+            for (const dl of card.links) {
+                let filename = safeName(card.card_name);
+                if (dl.cls === "dl-a-wm") {
+                    filename += "-水印";
+                }
+                filename += "." + dl.ext;
+                state.allLinks.push({
+                    url: dl.url,
+                    filename: filename,
+                    type: dl.cls,
+                    collectionFolder: safeName(coll.name || "未知合集"),
+                });
+            }
+            list.appendChild(item);
         }
-        list.appendChild(item);
     }
 
     body.appendChild(list);
@@ -1885,6 +1805,151 @@ function splitEmojiSheet(imgUrl) {
         img.onerror = function () { reject(new Error("图片加载失败")); };
         img.src = imgUrl;
     });
+}
+
+/* ============================================================
+   Emoji card loader (async, fallback to standard on failure)
+   ============================================================ */
+async function loadEmojiCard(card, bodyEl, coll) {
+    try {
+        // 取第一个图片链接
+        var imgLink = null;
+        for (var dli = 0; dli < card.links.length; dli++) {
+            if (card.links[dli].cls === "dl-a-img") {
+                imgLink = card.links[dli].url;
+                break;
+            }
+        }
+        if (!imgLink) throw new Error("无图片链接");
+
+        var proxyUrl = API_BASE + "/api/proxy_img?url=" + encodeURIComponent(imgLink);
+        var emojis = await splitEmojiSheet(proxyUrl);
+
+        // 如果只切出 1 个且几乎占满原图 ≈ 没有透明区域，视为普通图片
+        if (!emojis || emojis.length === 0) throw new Error("无透明区域");
+        if (emojis.length <= 2) {
+            // 检查是否几乎占满原图（非透明区域 > 80% 面积）
+            var first = emojis[0];
+            var imgTest = new Image();
+            imgTest.crossOrigin = "anonymous";
+            await new Promise(function (resolve, reject) {
+                imgTest.onload = resolve;
+                imgTest.onerror = reject;
+                imgTest.src = proxyUrl;
+            });
+            var totalArea = imgTest.width * imgTest.height;
+            var emojiArea = first.canvas.width * first.canvas.height;
+            if (emojiArea / totalArea > 0.7) throw new Error("无有效透明区域");
+        }
+
+        // 成功：渲染表情网格
+        bodyEl.innerHTML = "";
+        bodyEl.className = "emoji-card-body emoji-grid";
+
+        for (var ei = 0; ei < emojis.length; ei++) {
+            (function (idx) {
+                var wrapper = document.createElement("div");
+                wrapper.className = "emoji-item";
+
+                var cvs = emojis[idx].canvas;
+                var thumb = document.createElement("canvas");
+                var maxSize = 72;
+                var scale = Math.min(maxSize / cvs.width, maxSize / cvs.height, 1);
+                thumb.width = Math.round(cvs.width * scale);
+                thumb.height = Math.round(cvs.height * scale);
+                thumb.getContext("2d").drawImage(cvs, 0, 0, thumb.width, thumb.height);
+                thumb.className = "emoji-thumb";
+                thumb.title = "点击下载";
+
+                thumb.onclick = function () {
+                    cvs.toBlob(function (blob) {
+                        var a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = (card.card_name + "_" + (idx + 1)) + ".png";
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                    });
+                };
+
+                wrapper.appendChild(thumb);
+
+                var label = document.createElement("span");
+                label.className = "emoji-label";
+                label.textContent = (idx + 1);
+                wrapper.appendChild(label);
+
+                bodyEl.appendChild(wrapper);
+            })(ei);
+        }
+
+        // 下载全部
+        var dlBtn = document.createElement("button");
+        dlBtn.className = "btn btn-green";
+        dlBtn.style.cssText = "margin:10px auto 0;font-size:12px;padding:6px 18px;display:block;";
+        dlBtn.textContent = "⬇️ 下载全部 " + emojis.length + " 个表情";
+        dlBtn.onclick = function () {
+            emojis.forEach(function (emo, ei) {
+                setTimeout(function () {
+                    emo.canvas.toBlob(function (blob) {
+                        var a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = (card.card_name + "_" + (ei + 1)) + ".png";
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                    });
+                }, ei * 200);
+            });
+        };
+        bodyEl.appendChild(dlBtn);
+
+    } catch (_) {
+        // 切图失败 → 回退到标准卡片样式
+        fallbackEmojiCard(card, bodyEl, coll);
+    }
+}
+
+function fallbackEmojiCard(card, bodyEl, coll) {
+    bodyEl.innerHTML = "";
+    bodyEl.className = "emoji-card-body";
+    bodyEl.style.cssText = "";
+
+    for (var fi = 0; fi < card.links.length; fi++) {
+        var dl = card.links[fi];
+        var url = dl.url;
+        var isImg = dl.cls === "dl-a-img";
+        var el;
+        if (isImg) {
+            el = document.createElement("img");
+            el.src = API_BASE + "/api/proxy_img?url=" + encodeURIComponent(url);
+            el.alt = card.card_name + " 图片";
+            el.style.cssText = "max-width:100%;border-radius:6px;display:block;";
+        } else if (dl.cls === "dl-a-vid") {
+            el = document.createElement("video");
+            el.src = url;
+            el.controls = true;
+            el.preload = "none";
+            el.style.cssText = "max-width:100%;border-radius:6px;";
+        } else if (dl.cls === "dl-a-wm") {
+            el = document.createElement("video");
+            el.src = url;
+            el.controls = true;
+            el.preload = "none";
+            el.style.cssText = "max-width:100%;border-radius:6px;";
+        } else continue;
+
+        bodyEl.appendChild(el);
+
+        // 加入下载列表
+        var filename = (card.card_name || "emoji").replace(/[<>:"/\\|?*\s]/g, "_");
+        if (dl.cls === "dl-a-wm") filename += "-水印";
+        filename += "." + (dl.ext || "png");
+        state.allLinks.push({
+            url: url,
+            filename: filename,
+            type: dl.cls,
+            collectionFolder: (coll.name || "未知合集").replace(/[<>:"/\\|?*\s]/g, "_"),
+        });
+    }
 }
 
 /* ============================================================
