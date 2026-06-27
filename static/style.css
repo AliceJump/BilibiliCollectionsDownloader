@@ -1100,7 +1100,57 @@ header .sub {
     color: #d46b08;
 }
 
-/* ── Emoji card ── */
+/* ── Emoji badge (on collection block) ── */
+.emoji-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin: 0 0 6px 0;
+    background: #fffbe6;
+    border: 1px solid #ffe58f;
+    border-radius: 8px;
+}
+
+/* ── Emoji popup body ── */
+.emoji-popup-body {
+    padding: 12px;
+    overflow-y: auto;
+    max-height: 65vh;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-content: flex-start;
+}
+.emoji-popup-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.12s;
+}
+.emoji-popup-item:hover { background: var(--pink-light); }
+.emoji-popup-item canvas {
+    border-radius: 4px;
+    border: 1px solid #e3e5e7;
+    transition: transform 0.12s;
+}
+.emoji-popup-item canvas:hover { transform: scale(1.15); }
+.emoji-popup-item span {
+    font-size: 9px;
+    color: var(--sub);
+}
+.emoji-popup-footer {
+    padding: 8px 12px 12px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* ── Emoji card (hidden on success) ── */
 .emoji-card {
     background: #fff;
     border: 1.5px solid var(--border);

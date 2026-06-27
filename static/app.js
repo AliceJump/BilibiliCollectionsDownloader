@@ -975,20 +975,16 @@ function appendSingleBlock(container, coll) {
             // ── 表情包卡片：使用自定义控件 ──
             var emojiWrap = document.createElement("div");
             emojiWrap.className = "emoji-card";
-            // 标题
-            var emojiTitle = document.createElement("div");
-            emojiTitle.className = "emoji-card-title";
-            emojiTitle.textContent = "😊 " + card.card_name;
-            emojiWrap.appendChild(emojiTitle);
-            // 加载状态
+            emojiWrap.style.display = "none"; // 默认隐藏，成功时保持隐藏，失败时显示
+            // 加载状态（不可见）
             var emojiBody = document.createElement("div");
             emojiBody.className = "emoji-card-body";
             emojiBody.innerHTML = '<div class="emoji-loading">⏳ 解析表情包...</div>';
             emojiWrap.appendChild(emojiBody);
             list.appendChild(emojiWrap);
 
-            // 异步加载并解析
-            loadEmojiCard(card, emojiBody, coll);
+            // 异步加载并解析，传入 block 引用用于追加表情徽标
+            loadEmojiCard(card, emojiBody, coll, block, emojiWrap);
         } else {
             // ── 普通卡片：标准样式 ──
             const item = document.createElement("div");
@@ -1811,7 +1807,7 @@ function splitEmojiSheet(imgUrl) {
    Emoji card loader (collapsed preview + popup on click)
    ============================================================ */
 
-async function loadEmojiCard(card, bodyEl, coll) {
+async function loadEmojiCard(card, bodyEl, coll, collBlock, emojiWrap) {
     try {
         var imgLink = null;
         for (var dli = 0; dli < card.links.length; dli++) {
@@ -1828,9 +1824,7 @@ async function loadEmojiCard(card, bodyEl, coll) {
 
         // 按尺寸分组（容差 5px）
         function groupKey(w, h) {
-            var gw = Math.round(w / 5) * 5;
-            var gh = Math.round(h / 5) * 5;
-            return gw + "x" + gh;
+            return Math.round(w / 5) * 5 + "x" + Math.round(h / 5) * 5;
         }
         var groups = {};
         rawEmojis.forEach(function (e) {
@@ -1862,48 +1856,40 @@ async function loadEmojiCard(card, bodyEl, coll) {
         var firstArea = emojis[0].canvas.width * emojis[0].canvas.height;
         if (emojis.length <= 2 && firstArea / totalArea > 0.7) throw new Error("无有效透明区域");
 
-        // 将数据存到 bodyEl 上，弹窗时读取
-        bodyEl._emojiData = {
-            card_name: card.card_name,
-            emojis: emojis,
-            coll_name: coll.name,
-        };
+        // 成功！隐藏表情包卡片，改为在收藏集块上添加徽标
+        emojiWrap.style.display = "none";
 
-        // 渲染折叠预览
-        bodyEl.innerHTML = "";
-        bodyEl.className = "emoji-card-body";
-        bodyEl.style.cssText = "";
+        // 在收藏集块体顶部添加表情徽标
+        var emojiBadge = document.createElement("div");
+        emojiBadge.className = "emoji-badge";
 
-        var previewRow = document.createElement("div");
-        previewRow.style.cssText = "display:flex;align-items:center;gap:10px;padding:4px 8px;";
+        var firstCvs = emojis[0].canvas;
+        var badgeThumb = document.createElement("canvas");
+        var bScale = Math.min(32 / firstCvs.width, 32 / firstCvs.height, 1);
+        badgeThumb.width = Math.round(firstCvs.width * bScale);
+        badgeThumb.height = Math.round(firstCvs.height * bScale);
+        badgeThumb.getContext("2d").drawImage(firstCvs, 0, 0, badgeThumb.width, badgeThumb.height);
+        badgeThumb.style.cssText = "border-radius:3px;border:1px solid #e3e5e7;flex-shrink:0;";
 
-        var previewCvs = emojis[0].canvas;
-        var pThumb = document.createElement("canvas");
-        var pScale = Math.min(48 / previewCvs.width, 48 / previewCvs.height, 1);
-        pThumb.width = Math.round(previewCvs.width * pScale);
-        pThumb.height = Math.round(previewCvs.height * pScale);
-        pThumb.getContext("2d").drawImage(previewCvs, 0, 0, pThumb.width, pThumb.height);
-        pThumb.style.cssText = "border-radius:4px;border:1px solid #e3e5e7;flex-shrink:0;";
+        var badgeInfo = document.createElement("span");
+        badgeInfo.style.cssText = "font-size:12px;color:var(--sub);flex:1;";
+        badgeInfo.textContent = "😊 " + emojis.length + " 个表情";
 
-        var infoText = document.createElement("span");
-        infoText.style.cssText = "font-size:12px;color:var(--sub);flex:1;";
-        infoText.textContent = "😊 " + emojis.length + " 个表情";
+        var badgeBtn = document.createElement("button");
+        badgeBtn.className = "btn btn-primary";
+        badgeBtn.style.cssText = "font-size:11px;padding:3px 10px;flex-shrink:0;";
+        badgeBtn.textContent = "查看";
+        var emojiData = { card_name: card.card_name, emojis: emojis, coll_name: coll.name };
+        badgeBtn.onclick = function (e) { e.stopPropagation(); openEmojiPopup(emojiData); };
 
-        var viewBtn = document.createElement("button");
-        viewBtn.className = "btn btn-primary";
-        viewBtn.style.cssText = "font-size:11px;padding:4px 12px;flex-shrink:0;";
-        viewBtn.textContent = "查看";
-        viewBtn.onclick = function (e) {
-            e.stopPropagation();
-            openEmojiPopup(bodyEl._emojiData);
-        };
-
-        previewRow.appendChild(pThumb);
-        previewRow.appendChild(infoText);
-        previewRow.appendChild(viewBtn);
-        bodyEl.appendChild(previewRow);
+        emojiBadge.appendChild(badgeThumb);
+        emojiBadge.appendChild(badgeInfo);
+        emojiBadge.appendChild(badgeBtn);
+        collBlock.insertBefore(emojiBadge, collBlock.querySelector(".coll-body"));
 
     } catch (_) {
+        // 失败 → 显示 emojiWrap 并回退
+        emojiWrap.style.display = "";
         fallbackEmojiCard(card, bodyEl, coll);
     }
 }
@@ -1930,13 +1916,12 @@ function openEmojiPopup(data) {
         '<div class="fab-panel-actions"><button class="fab-panel-btn" onclick="closeEmojiPopup()">✕</button></div>';
 
     var body = document.createElement("div");
-    body.className = "fab-panel-body";
-    body.style.cssText = "padding:12px;overflow-y:auto;max-height:65vh;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;";
+    body.className = "emoji-popup-body";
 
     data.emojis.forEach(function (emo, idx) {
         (function (idx) {
             var wrapper = document.createElement("div");
-            wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;";
+            wrapper.className = "emoji-popup-item";
             wrapper.title = "点击下载";
 
             var cvs = emo.canvas;
@@ -1946,11 +1931,7 @@ function openEmojiPopup(data) {
             thumb.width = Math.round(cvs.width * scale);
             thumb.height = Math.round(cvs.height * scale);
             thumb.getContext("2d").drawImage(cvs, 0, 0, thumb.width, thumb.height);
-            thumb.style.cssText = "border-radius:4px;border:1px solid #e3e5e7;transition:transform 0.12s;";
-            thumb.onmouseenter = function () { thumb.style.transform = "scale(1.1)"; };
-            thumb.onmouseleave = function () { thumb.style.transform = ""; };
 
-            // 单击下载单个
             wrapper.onclick = function () {
                 cvs.toBlob(function (blob) {
                     var a = document.createElement("a");
@@ -1964,7 +1945,6 @@ function openEmojiPopup(data) {
             wrapper.appendChild(thumb);
 
             var label = document.createElement("span");
-            label.style.cssText = "font-size:9px;color:var(--sub);";
             label.textContent = (idx + 1);
             wrapper.appendChild(label);
 
@@ -1974,12 +1954,14 @@ function openEmojiPopup(data) {
 
     // 下载全部 (ZIP)
     if (data.emojis.length > 1) {
+        var footer = document.createElement("div");
+        footer.className = "emoji-popup-footer";
         var dlZipBtn = document.createElement("button");
         dlZipBtn.className = "btn btn-green";
-        dlZipBtn.style.cssText = "margin:10px auto 0;font-size:12px;padding:8px 20px;display:block;clear:both;width:fit-content;";
         dlZipBtn.textContent = "⬇️ 下载全部 " + data.emojis.length + " 个 (ZIP)";
         dlZipBtn.onclick = function () { downloadEmojiZip(data); };
-        body.appendChild(dlZipBtn);
+        footer.appendChild(dlZipBtn);
+        body.appendChild(footer);
     }
 
     panel.appendChild(header);
