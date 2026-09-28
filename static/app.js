@@ -186,10 +186,13 @@ function renderFavorites() {
         html += '<div class="fav-section-title">卡片收藏</div>';
         html += data.cards.map(function (item) {
             var firstUrl = item.urls && item.urls[0] ? item.urls[0].url : "";
+            var openHref = firstUrl
+                ? (API_BASE + "/api/proxy_img?url=" + encodeURIComponent(firstUrl))
+                : "";
             return '<div class="fav-item">' +
                 '<div class="fav-item-name">' + escHtml(item.card_name || "unnamed") + '</div>' +
                 '<div class="fav-item-meta">' + escHtml(item.collection_name || "未知合集") + ' · act_id: ' + escHtml(String(item.act_id)) + '</div>' +
-                (firstUrl ? '<a class="fav-item-link" href="' + escHtml(firstUrl) + '" target="_blank" rel="noopener">打开资源</a>' : '') +
+                (openHref ? '<a class="fav-item-link" href="' + escHtml(openHref) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">打开资源</a>' : '') +
                 '</div>';
         }).join("");
     }

@@ -179,24 +179,35 @@ def proxy_img():
             "Referer": "https://www.bilibili.com/",
             "User-Agent": _RESOLVE_HEADERS["User-Agent"]
         }
+        range_header = request.headers.get("Range")
+        if range_header:
+            headers["Range"] = range_header
 
         resp = req_lib.get(
             url,
             headers=headers,
             stream=True,
-            timeout=10
+            timeout=(10, 60)
         )
 
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            resp.close()
+            return jsonify({
+                "code": -1,
+                "message": "图片代理失败"
+            }), 502
+
+        # 原样转发字节，避免解码后和 Content-Length / Content-Encoding 不一致
+        resp.raw.decode_content = False
 
         # Content-Type
         content_type = resp.headers.get("Content-Type")
 
         if not content_type:
-            ext = url.split(".")[-1].lower()
+            ext = url.split("?")[0].split(".")[-1].lower()
             content_type = (
                 mimetypes.guess_type("file." + ext)[0]
-                or "image/jpeg"
+                or "application/octet-stream"
             )
 
         # =========================
@@ -208,25 +219,40 @@ def proxy_img():
         filename = os.path.basename(parsed.path)
 
         # URL 解码
-        filename = unquote(filename)
+        filename = unquote(filename).replace('"', "").replace("\r", "").replace("\n", "")
 
         # 防止空文件名
         if not filename:
-            ext = mimetypes.guess_extension(content_type) or ".jpg"
-            filename = f"image{ext}"
+            ext = mimetypes.guess_extension(content_type.split(";")[0].strip()) or ".bin"
+            filename = f"resource{ext}"
 
-        # =========================
-        # 返回代理内容
-        # =========================
+        def generate():
+            try:
+                while True:
+                    chunk = resp.raw.read(64 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                resp.close()
+
+        out_headers = {
+            # inline = 浏览器内显示
+            # attachment = 强制下载
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Accept-Ranges": resp.headers.get("Accept-Ranges", "bytes"),
+        }
+        for hop in ("Content-Length", "Content-Range", "Content-Encoding"):
+            value = resp.headers.get(hop)
+            if value:
+                out_headers[hop] = value
 
         return Response(
-            resp.raw.read(),
+            generate(),
+            status=resp.status_code,
             content_type=content_type,
-            headers={
-                # inline = 浏览器内显示
-                # attachment = 强制下载
-                "Content-Disposition": f'inline; filename="{filename}"'
-            }
+            headers=out_headers,
+            direct_passthrough=True,
         )
 
     except Exception as e:
