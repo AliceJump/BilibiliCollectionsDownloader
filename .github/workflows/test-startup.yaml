@@ -1,0 +1,31 @@
+name: Test startup launcher
+
+on:
+  pull_request:
+    paths:
+      - "start.bat"
+      - "start.ps1"
+      - "scripts/test_startup.ps1"
+      - ".github/workflows/test-startup.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - "start.bat"
+      - "start.ps1"
+      - "scripts/test_startup.ps1"
+      - ".github/workflows/test-startup.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  test-startup:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test redirected launcher input
+        shell: pwsh
+        run: ./scripts/test_startup.ps1
