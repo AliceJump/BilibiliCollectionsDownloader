@@ -48,6 +48,10 @@ jobs:
         shell: pwsh
         run: python -m py_compile app.py server.py run_web.py web.py
 
+      - name: Startup launcher regression test
+        shell: pwsh
+        run: ./scripts/test_startup.ps1
+
       - name: Build portable package
         shell: pwsh
         run: |
