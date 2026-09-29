@@ -1,4 +1,4 @@
-name: Build Minestom Arena sandbox
+name: Build Minecraft sandbox stack
 
 on:
   push:
@@ -14,26 +14,172 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
-      - name: Clone Arena
-        run: git clone --depth 1 https://github.com/Minestom/Arena.git arena
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
 
-      - name: Build fat jar
-        working-directory: arena
+      - name: Create Minestom server project
+        shell: bash
         run: |
-          chmod +x gradlew
-          ./gradlew build --no-daemon
-          ls -lh build/libs
+          set -euxo pipefail
+          mkdir -p server/src/main/java/sandbox dist bot
+          cat > server/pom.xml <<'EOF'
+          <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>sandbox</groupId>
+            <artifactId>mc-sandbox-server</artifactId>
+            <version>1.0</version>
+            <properties>
+              <maven.compiler.release>21</maven.compiler.release>
+              <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+            </properties>
+            <dependencies>
+              <dependency>
+                <groupId>net.minestom</groupId>
+                <artifactId>minestom</artifactId>
+                <version>2025.08.29-1.21.8</version>
+              </dependency>
+              <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>2.0.17</version>
+              </dependency>
+            </dependencies>
+            <build>
+              <plugins>
+                <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <version>3.14.0</version>
+                </plugin>
+                <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-shade-plugin</artifactId>
+                  <version>3.6.1</version>
+                  <executions>
+                    <execution>
+                      <phase>package</phase>
+                      <goals><goal>shade</goal></goals>
+                      <configuration>
+                        <shadedArtifactAttached>false</shadedArtifactAttached>
+                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <transformers>
+                          <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                            <mainClass>sandbox.Main</mainClass>
+                          </transformer>
+                          <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                        </transformers>
+                      </configuration>
+                    </execution>
+                  </executions>
+                </plugin>
+              </plugins>
+            </build>
+          </project>
+          EOF
+          cat > server/src/main/java/sandbox/Main.java <<'EOF'
+          package sandbox;
 
-      - name: Upload runnable jar
+          import net.minestom.server.MinecraftServer;
+          import net.minestom.server.coordinate.Pos;
+          import net.minestom.server.entity.GameMode;
+          import net.minestom.server.event.GlobalEventHandler;
+          import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
+          import net.minestom.server.event.player.PlayerSpawnEvent;
+          import net.minestom.server.instance.InstanceContainer;
+          import net.minestom.server.instance.InstanceManager;
+          import net.minestom.server.instance.block.Block;
+
+          public final class Main {
+              public static void main(String[] args) {
+                  MinecraftServer server = MinecraftServer.init();
+                  InstanceManager instances = MinecraftServer.getInstanceManager();
+                  InstanceContainer world = instances.createInstanceContainer();
+
+                  world.setGenerator(unit -> {
+                      unit.modifier().fillHeight(0, 40, Block.STONE);
+                      unit.modifier().fillHeight(40, 41, Block.DIRT);
+                      unit.modifier().fillHeight(41, 42, Block.GRASS_BLOCK);
+                  });
+
+                  GlobalEventHandler events = MinecraftServer.getGlobalEventHandler();
+                  events.addListener(AsyncPlayerConfigurationEvent.class, event -> {
+                      event.setSpawningInstance(world);
+                      event.getPlayer().setRespawnPoint(new Pos(0.5, 43, 0.5));
+                  });
+                  events.addListener(PlayerSpawnEvent.class, event -> {
+                      var player = event.getPlayer();
+                      player.setGameMode(GameMode.SURVIVAL);
+                      System.out.println("PLAYER_SPAWN " + player.getUsername() + " " + player.getPosition());
+                  });
+
+                  server.start("127.0.0.1", 25565);
+                  System.out.println("MC_SANDBOX_READY 127.0.0.1:25565");
+              }
+          }
+          EOF
+
+      - name: Build server
+        working-directory: server
+        run: mvn -B -ntp -DskipTests package
+
+      - name: Build Mineflayer bot bundle
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd bot
+          npm init -y
+          npm install mineflayer
+          cat > bot.js <<'EOF'
+          const mineflayer = require('mineflayer')
+          const bot = mineflayer.createBot({
+            host: '127.0.0.1',
+            port: 25565,
+            username: 'ChatGPTBot',
+            auth: 'offline',
+            version: '1.21.8'
+          })
+          bot.on('login', () => console.log('BOT_LOGIN'))
+          bot.on('spawn', async () => {
+            console.log('BOT_SPAWN', bot.entity.position)
+            await bot.look(Math.PI / 4, 0)
+            bot.setControlState('forward', true)
+            setTimeout(() => bot.setControlState('forward', false), 2500)
+          })
+          bot.on('move', () => {
+            const p = bot.entity.position
+            console.log('BOT_POS', p.x.toFixed(2), p.y.toFixed(2), p.z.toFixed(2))
+          })
+          bot.on('kicked', reason => console.log('BOT_KICKED', reason))
+          bot.on('error', err => { console.error('BOT_ERROR', err); process.exitCode = 2 })
+          setTimeout(() => {
+            console.log('BOT_DONE')
+            bot.quit()
+            setTimeout(() => process.exit(0), 500)
+          }, 8000)
+          EOF
+
+      - name: Package artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp server/target/mc-sandbox-server-1.0.jar dist/server.jar
+          cp -a bot dist/bot
+          ls -lh dist/server.jar
+          du -sh dist/bot
+
+      - name: Upload runnable stack
         uses: actions/upload-artifact@v4
         with:
-          name: mc-arena-jar
-          path: arena/build/libs/*all.jar
+          name: mc-sandbox-stack
+          path: dist
           if-no-files-found: error
           retention-days: 1
