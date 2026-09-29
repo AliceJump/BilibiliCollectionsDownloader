@@ -39,21 +39,20 @@ function Invoke-LauncherCase {
     $caseDir = Join-Path ([System.IO.Path]::GetTempPath()) ("bcd-startup-test-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $caseDir | Out-Null
 
-    $stdinPath = Join-Path $caseDir "stdin.txt"
     $stdoutPath = Join-Path $caseDir "stdout.txt"
     $stderrPath = Join-Path $caseDir "stderr.txt"
     $process = $null
 
     try {
         if ($HasInput) {
-            [System.IO.File]::WriteAllText($stdinPath, $InputText + [Environment]::NewLine, [System.Text.Encoding]::ASCII)
+            $command = "(echo $InputText) | call `"$startBat`""
         }
         else {
-            [System.IO.File]::WriteAllBytes($stdinPath, [byte[]]@())
+            $command = "type nul | call `"$startBat`""
         }
 
-        $arguments = "/d /s /c `"`"$startBat`"`""
-        $process = Start-Process -FilePath "cmd.exe" -ArgumentList $arguments -WorkingDirectory $repoRoot -RedirectStandardInput $stdinPath -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -WindowStyle Hidden -PassThru
+        $arguments = "/d /s /c `"$command`""
+        $process = Start-Process -FilePath "cmd.exe" -ArgumentList $arguments -WorkingDirectory $repoRoot -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -WindowStyle Hidden -PassThru
 
         if (-not $process) {
             throw "${Name}: failed to start launcher"
