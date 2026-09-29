@@ -19,6 +19,7 @@ $embeddedPython = Join-Path $root "python\python.exe"
 $appScript = Join-Path $root "app.py"
 $webScript = Join-Path $root "run_web.py"
 $exitCode = 0
+$inputRedirected = [Console]::IsInputRedirected
 
 function Show-MainMenu {
     Write-Host ""
@@ -31,9 +32,32 @@ function Show-MainMenu {
     Write-Host ""
 }
 
+function Read-StartupMode {
+    if ($inputRedirected) {
+        return [Console]::In.ReadLine()
+    }
+    return Read-Host "请选择启动模式"
+}
+
 while ($true) {
     Show-MainMenu
-    $mode = Read-Host "请选择启动模式"
+
+    try {
+        $mode = Read-StartupMode
+    }
+    catch {
+        Write-Host "无法读取启动模式，退出。"
+        $exitCode = 1
+        break
+    }
+
+    if ($null -eq $mode) {
+        Write-Host "未读取到启动模式，退出。"
+        $exitCode = 1
+        break
+    }
+
+    $mode = $mode.Trim()
 
     if ($mode -eq "1") {
         if (Test-Path $embeddedPython) {
@@ -75,6 +99,12 @@ while ($true) {
 
     if ($mode -ieq "Q") {
         $exitCode = 0
+        break
+    }
+
+    if ($inputRedirected) {
+        Write-Host "非交互输入无效，退出。"
+        $exitCode = 1
         break
     }
 
